@@ -99,7 +99,7 @@
 \begin{center}
     \begin{minipage}[c]{.7\textwidth}
         \begin{abstract}
-            Temporal Difference (TD) learning is used to learn value functions of Markov decision processes (MDPs) using samples following some policy. In Reinforcement Learning (RL), it is necessary to use TD with both function approximation (i.e. neural networks), and off-policy learning. These three conditions are collectively known as the deadly triad because they collectively cause learning to be unstable or diverge. In the literature there are two broad strategies to combat this: regularization and reweighting. Our past work has shown the limitations of regularization, and learned reweighting strategies are well-known to be unstable in practice. We propose a reweighting method based on results from convex optimization with better convergence properties and training performance.
+            Temporal Difference (TD) learning is used to learn value functions of Markov decision processes (MDPs) using samples following some policy. In Reinforcement Learning (RL), it is necessary to use TD with both function approximation (i.e. neural networks), and off-policy learning. These three conditions are collectively known as the deadly triad because they collectively cause learning to be unstable or diverge. In the literature there are two main strategies to combat this: regularization and reweighting. Our past work has shown the limitations of regularization, and learned reweighting strategies are well-known to be unstable in practice. We have also examined ancilliary strategies that are not effective. We propose a reweighting method, based on results from convex optimization, with better convergence properties and training performance.
         \end{abstract}
     \end{minipage}
 \end{center}
@@ -232,7 +232,7 @@ Intuitively, there is a fundamental bootstrapping issue in this situation: we us
 
 \subsection{Model-Value Expansion}
 
-A completely different approach from those so far is to factor the value function into parts that we can learn without bootstrapping. In unpublished work \cite{manek2021mve} we investigated the use of Model-Value Expansion (MVE) \cite{Feinberg2018ModelBasedVE}.
+We can also factor the value function into parts that are learned without bootstrapping. In unpublished work \cite{manek2021mve} we investigated the use of Model-Value Expansion (MVE) \cite{Feinberg2018ModelBasedVE}.
 The key idea behind MVE is that it is possible to ``unroll'' the computation of a value estimate from a particular state by following a learned dynamics and reward function for a few steps before using a learned value function for the residual value. Since the dynamics and reward function are not bootstrapped, they are not susceptible to divergence from off-policy training. Further, by varying the number of steps and discount factor, it is possible to change the degree of bootstrapping. Informally, this is the modern equivalent to interpolating between Monte-Carlo methods and Bootstrapping, an approach that was explored in the classic RL literature.
 
 Since modern RL algorithms like MBPO \cite{janner2019mbpo} already ensemble independently-initialized dynamics models for synthetic data generation, we can leverage these already-learned models to improve our value estimates. Consequently, such ideas have been explored in the literature \cite{lee2021sunrise,Feinberg2018ModelBasedVE,buckman2018steve}, and have been shown to be effective in standard benchmarks, especially those with continuous state- and action-spaces. The trade-off is that these methods generally require greatly increased computation.
@@ -242,7 +242,7 @@ Our prior work \cite{manek2021mve} shows that a small change in ensembling techn
     \centering
     \input{mbpomve.tex}
 
-    \caption{Policy value calculation when $H=2$. Each ensemble member separately unrolls the policy for $H$ steps for MVE and one final step for the terminal value. The action at step $i$ sampled from the joint distribution $\cup_j \pi(x_{(j)},i)$. The value estimate by ensemble member $j$ is $\sum_{a=0}^{H-1} \gamma^a\cdot\tilde r_{(j)}(x_{(j),a}, u_{a}) + \gamma^H Q(\pi(x_{(j)},H))$. The mean (or minimum) of the individual estimates is used as the final value estimate. The exploration temperature is omitted for brevity.}
+    \caption{Policy value calculation when $H=2$. Each ensemble member separately unrolls the policy for $H$ steps for MVE, and one final step for the terminal value. The terminal value is computed using the standard double-Q-function used by MBPO \cite{janner2019mbpo}. The action at each step is shared between all unrollings. The mean (or minimum) of the individual estimates is used as the final value estimate. }
     \label{fig:policyvalue}
 \end{figure}
 
@@ -252,6 +252,9 @@ However, we are not able to show, either in theory or practice, that the use of 
 
 
 \subsection{Guaranteed-Stable Functions}
+Should I talk about the work we did attempting to learn stable policies using the ``Stable Dyanmics Model'' paper? \todo{Ask Zico}
+
+The punchline is that the method can learn stable functions (either value or policy) only when the parameterization is small. Otherwise, it is very sensitive to the exact training distribution and prone to model collapse.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Kolter's Non-Expansion Criterion }
@@ -286,6 +289,10 @@ F(s) = \E_{s'\sim p(s'|s)} & \left[\begin{bmatrix}
     \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0
 \end{align}
 explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem.
+
+\section{Proposed Work}
+
+Do this after we figure out if we're going to submit the TD-DO followup to NeurIPS 2022. If we submit it, I'll have to rewrite the entire section.\todo{Wait for NeurIPS 2022 deadline. }
 
 \clearpage
 
