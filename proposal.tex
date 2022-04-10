@@ -1,7 +1,8 @@
 \documentclass[11pt]{article}
 
+\usepackage[letterpaper]{geometry}
+
 \usepackage[utf8]{inputenc} % allow utf-8 input
-\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
 \usepackage{hyperref}       % hyperlinks
 \usepackage{url}            % simple URL typesetting
 \usepackage{booktabs}       % professional-quality tables
@@ -12,17 +13,17 @@
 \usepackage{tikz}           % drawings
 \usepackage{pgfplots}       % plots
 \usepackage{xfrac}          % better fractions
-\usepackage{subcaption}      % figure-in-figure
-\usepackage{amsmath}
-\usepackage{amsthm}
-\usepackage{bm}
-\usepackage{comment}
-\usepackage{sectsty}
+\usepackage{amsmath,amsthm,amssymb,bm}
+\usepackage{comment,todonotes}
 \usepackage{graphicx}
 \usepackage{natbib}
-\usepackage{amssymb}
-\usepackage{fancyhdr}
-\usepackage{todonotes}
+\usepackage{fancyhdr,sectsty}
+\usepackage{fontspec}
+\usepackage{caption,subcaption}
+\usepackage{minibox}
+
+\newfontfamily\OpenSans[Letters=SmallCaps]{Open Sans}[Scale=MatchLowercase]
+\newfontfamily\SourceSerifPro{Source Serif Pro}[Scale=MatchLowercase,Ligatures=TeX]
 
 \bibliographystyle{abbrvnat}
 
@@ -32,7 +33,7 @@
 
 
 % Margins
-%\topmargin=-0.55in
+\topmargin=-4pt
 \evensidemargin=0in
 \oddsidemargin=0in
 \textwidth=6.5in
@@ -45,7 +46,7 @@
 \rhead{\thepage}
 \rfoot{\today}
 
-\title{ Thesis Proposal }
+\title{ On Value Functions in Temporal Difference Learning }
 \author{ Gaurav Manek }  
 \date{\today}
 
@@ -53,7 +54,41 @@
 
 \begin{document}
 
-\maketitle
+\begin{titlepage}
+    {
+        \hfill\includegraphics[width=1.25in,trim=0 0 .125in .25in]{cmu/cmu-wordmark-square-w-on-r.eps}
+    }
+    \begin{center}{\SourceSerifPro
+        \vfill
+
+        {\Huge\OpenSans
+            {
+                {Value Functions}\\[0.25em]
+                \textit{in}\\[1em]
+                {Temporal Difference Learning}
+            }
+        }
+
+        \vspace{0.25in}
+        Thesis Proposal
+
+        \vspace{1.5cm}
+
+        \textbf{Gaurav Manek}
+
+        \vfill
+
+        \textit{In Partial Fulfillment of the Computer Science PhD Program}
+
+        \vspace{0.8cm}
+
+        Computer Science Department\\
+        School of Computer Science\\
+        Carnegie Mellon University\\
+        \today
+
+    }\end{center}
+ \end{titlepage}
 
 \begin{abstract}
 Temporal Difference (TD) learning is used to learn value functions of Markov decision processes (MDPs) using samples following some policy. In Reinforcement Learning (RL), it is necessary to use TD with both function approximation (i.e. neural networks), and off-policy learning. These three conditions are collectively known as the deadly triad because they collectively cause learning to be unstable or diverge. In the literature there are two broad strategies to combat this: regularization and reweighting. Our past work has shown the limitations of regularization, and learned reweighting strategies are well-known to be unstable in practice. We propose a reweighting method based on results from convex optimization with better convergence properties and training performance.
@@ -157,8 +192,23 @@ RR penalizes the $\mathcal L_2$-norm of the learned weights; it is also possible
 \subsection{Emphatic-TD Style Algorithms}
 
 Emphatic-TD \cite{sutton2016emphatic} fixes the fundamental problem in off-policy TD by reweighing updates so they appear on-policy. The core idea underlying these techniques is to estimate the ``followon trace'' for each state, the (weighted, $\lambda$- and $\gamma-$discounted) probability mass of all states whose value estimates it influences. This trace is then used to estimate the emphasis, which is the reweighting factor for each update. While this family of methods is provably optimal in expectation, it is subject to tremendous variance in theory and practice, especially when the importance is estimated using Monte-Carlo sampling.\footnote{Sutton and Barto's textbook \cite{sutton2020reinforcement} says about Emphatic-TD that ``it is
-nigh impossible to get consistent results in computational experiments.'' (when applied to Baird's example). } In practice, these methods learn the follow-on trace using TD \cite{jiang2021learning,zhang2020provably} or similar \cite{hasselt2021expected}, which makes them vulnerable to bias induced by the use of regularization.
+nigh impossible to get consistent results in computational experiments.'' (when applied to Baird's example). } 
+There is considerable interest in making this more practical, especially by learning the importance and value models simultaneously.
 
+A leading example of this work is COF-PAC \cite{zhang2020provably}, which uses ridge regularized versions of GTD2 \cite{sutton2009fast} to learn both the value and emphasis models. The authors describe RR as essential to their method, particularly when the target policy changes during learning. This reliance on RR makes COF-PAC vulnerable to model bias. We illustrate this with a counterexample in which COF-PAC learns correctly without RR but diverges with RR.
+
+\todo{rewrite this to make sense without the math. }
+The error landscape of our example is illustrated in Figure~\ref{fig:emphval}. The unregularized distribution $\upsilon(0)$ is in a stable region of the curve, and consequently has low error. Regularizing the emphasis model moves the value model to $\upsilon(2\cdot 10^{-4})$, which lies in an unstable region of the error landscape. In this way, regularizing the emphasis function causes the learned value function to have large error.
+
+More formally, we compute the value function error $d(\upsilon(\eta_m), \eta_v)$ with possibly different RR parameters for emphasis ($\eta_m$) and value ($\eta_v$). First, under COF-PAC without regularization, the value function error is $d(\upsilon(0), 0) = 8\cdot 10^{-4}$, well within the representation error. This means that unregularized COF-PAC corrects for off-policy sampling and learns the true value function. Regularizing only the emphasis function yields $d(\upsilon(2\cdot 10^{-4}), 0) = 418$, which is huge. Adding RR to the value function improves this, but the error is still orders of magnitude larger than the representation error: $d(\upsilon(2\cdot 10^{-4}), 0) = 3.00$. RR causes the value function to diverge, and this cannot be fixed by regularizing the value function separately. This completes the example.
+
+Intuitively, there is a fundamental bootstrapping issue in this situation: we use an emphasis models because the value function may not converge to a good solution under TD, but to use the emphasis model we have to assume it converges to a good solution under TD. As this paper shows, the use of RR is not sufficient to guarantee good behavior.
+
+\begin{figure}
+  \input{emphasistd/emphasistd.tex}
+  \caption{Ridge regularization distorts the emphasis model (left), which induces the value function (right) to move to a singularity. Unregularized models are shown in red, regularized models in blue. Ridge regularization can interact with emphasis models to significantly worsen learned value functions. }
+  \label{fig:emphasisplots}
+\end{figure}
 
 
 
@@ -198,13 +248,6 @@ F(s) = \E_{s'\sim p(s'|s)} & \left[\begin{bmatrix}
     \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0
 \end{align}
 explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem.
-
-
-\begin{figure}
-    \input{emphasistd/emphasistd.tex}
-    \caption{Ridge regularization distorts the emphasis model (left), which induces the value function (right) to move to a singularity. Ridge regularization can interact with emphasis models to significantly worsen learned value functions. (This example is with reference to the algorithm in \citep{zhang2021breaking}.) }
-    \label{fig:emphasisplots}
-\end{figure}
 
 \clearpage
 
