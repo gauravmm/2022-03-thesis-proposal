@@ -1,0 +1,52 @@
+\centering
+
+\begin{tikzpicture}
+    \begin{axis}[
+    width=0.5\textwidth,
+    height=0.3\textwidth,
+    ymin=0.01,
+    ymax=10,
+    ymode = log,
+    xmin=0,
+    xmax=1,
+    title = {TD Error over Distributions},
+    xlabel={Distribution parameter $p$},
+    xtick={0,0.2,0.4,0.6,0.8},
+    legend style={legend cell align=left, legend pos=south west,nodes={scale=0.75, transform shape}},
+    ]
+        \addplot[dashed,color=black] table [x=p, y=v0err] {multilayerperf/basic.dat}
+            node[below,pos=0.2] {$\|V\|_2$};
+
+        \addplot[color=red,very thick] table [x=p, y=mean] {multilayerperf/dump_3_0.dat};
+        \addplot[color=red,very thin,name path=lcb,] table [x=p, y=conf_05] {multilayerperf/dump_3_0.dat};
+        \addplot[color=red,very thin,name path=ucb,] table [x=p, y=conf_95] {multilayerperf/dump_3_0.dat};
+        \addplot[pattern=crosshatch,pattern color=red!50,area legend] fill between[of=lcb and ucb];
+
+        \addplot[color=blue,very thick] table [x=p, y=mean] {multilayerperf/dump_3_0.001.dat};
+        \addplot[color=blue,very thin,name path=lcb,] table [x=p, y=conf_05] {multilayerperf/dump_3_0.001.dat};
+        \addplot[color=blue,very thin,name path=ucb,] table [x=p, y=conf_95] {multilayerperf/dump_3_0.001.dat};
+        \addplot[blue!15,area legend] fill between[of=lcb and ucb];
+
+        \legend{,,,,unregularized,regularized}
+    \end{axis}
+\end{tikzpicture}
+\begin{tikzpicture}
+    \begin{axis}[
+    width=0.5\textwidth,
+    height=0.3\textwidth,
+    ymin=2.0,
+    ymax=4.0,
+    xmin=0.00001,
+    xmax=1,
+    title = {TD Error vs $\eta$ at $p=0.31$},
+    xlabel={RR parameter $\eta$},
+    xmode=log,
+    ]
+        \addplot[color=blue,very thick] table [x=eta, y=mean] {multilayerperf/etas_p_0.31.dat};
+        \addplot[color=blue,very thin,name path=lcb,] table [x=eta, y=conf_05] {multilayerperf/etas_p_0.31.dat};
+        \addplot[color=blue,very thin,name path=ucb,] table [x=eta, y=conf_95] {multilayerperf/etas_p_0.31.dat};
+        \addplot[blue!15] fill between[of=lcb and ucb];
+
+        \addplot[dashed,color=black] table [x=eta, y=v0err] {multilayerperf/basic.dat};
+    \end{axis}
+\end{tikzpicture}

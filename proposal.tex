@@ -20,9 +20,16 @@
 \usepackage{sectsty}
 \usepackage{graphicx}
 \usepackage{natbib}
+\usepackage{amssymb}
 \usepackage{fancyhdr}
+\usepackage{todonotes}
 
 \bibliographystyle{abbrvnat}
+
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{pgfplots.groupplots,positioning,fit,patterns}
+\usepgfplotslibrary{fillbetween}
+
 
 % Margins
 %\topmargin=-0.55in
@@ -42,6 +49,8 @@
 \author{ Gaurav Manek }  
 \date{\today}
 
+\newcommand{\E}{\textbf{E}}
+
 \begin{document}
 
 \maketitle
@@ -59,17 +68,17 @@ The former attempts to regularize TD, with $\mathcal L_2$-norm weight regulariza
 The second line started with Emphatic-TD, in which \citet{sutton2016emphatic} note that it is possible to reweight samples obtained off-policy so they appear to be on-policy. Such methods learn the follow-on trace using Monte-Carlo methods (in the original) and/or TD \citep{jiang2021learning,zhang2020provably} or techniques similar to TD \citep{hasselt2021expected}.
 
 Current work on deadly-triad-associated training instability is typically evaluated on three standard examples. However, it is possible to regularize training to mitigate divergence in these, and ridge regularization (RR) is used for that in the literature.
-In a paper that is in preparation, we introduce a new counterexample (in Figure~\ref{fig:mdp}) that is resistant to regularization. As expected, vanilla TD-based algorithms converge with arbitrarily poor performance for some off-policy distributions ($\eta=0$ line in Figure~\ref{fig:fixedpoint}), and regularization appears to blunt the asymptote ($\eta > 0$ lines). Part of our contribution is that there is a distribution at which the model never performs better than always guessing zeros (i.e. at the limit of RR $\eta\to\infty$) despite any amount of RR, and hence the model is \emph{vacuous}. This problem persists in any algorithm that converges to the same point as naive TD, which covers a wide swath of the extant literature; we make our analysis concrete by showing how this example forces the error bounds derived by \citet{zhang2021breaking} to permit vacuous examples.
+In a paper that is in preparation, we introduce a new counterexample (in Figure~\ref{fig:mdp}) that is resistant to regularization. As expected, vanilla TD-based algorithms converge with arbitrarily poor performance for some off-policy distributions ($\eta=0$ line in Figure~\ref{fig:fixedpoint}), and regularization appears to blunt the asymptote ($\eta > 0$ lines). Part of our contribution is that there is a distribution at which the model never performs better than always guessing zeros (i.e. at the limit of RR $\eta\to\infty$) despite any amount of RR, and hence the model is \emph{vacuous}. This problem persists in any algorithm that converges to the same point as naive TD, which covers a wide swath of the extant literature; we make our analysis concrete by showing how this example forces the error bounds derived by \citet{zhang2021breaking} to permit vacuous solutions.
 
 In the same paper, we show how modern Emphatic algorithms that use TD to learn the reweighting function are vulnerable to the bias introduced by RR. These algorithms (near-universally) assume RR so they converge despite changing policies. We construct a counterexample (Figure~\ref{fig:emphasisplots}) in which the emphasis and value models converge correctly (red circles) when unregularized, but adding regularization causes them to catastrophically diverge (blue circles).
 
+\todo{Mention MVE. }
+
 The focus of our work has now moved on to effectively mitigating this in a manner that is not vulnerable to learning vacuous models or RR-induced bias. We build on the work of \citet{kolter2011fixed}, which derives a condition under which TD is provably stable. Following that work, we have two possible paths. First, we could rewrite the stability criterion so we can compute a closed-form solution for the provably-stable TD update, instead of a nested optimization step. This allows us to reweight updates to be provably stable with only a constant overhead (per iteration) compared to naive TD. Second, we could use Semidefinite Programming (SDP) to compute the reweighting factor for batches of state-transitions. This approach is suitable to larger problems, but we will need to show that the overhead of solving SDPs in the training loop is offset either by better convergence properties or by being able to solve problems that were previously not solvable.
 
-\paragraph{Proposed Thesis Topic:} We propose a novel algorithm to ameliorate the instability from off-policy TD. This algorithm is based on the principles of TD-DO, and would work by either (1) computing reweighting factors in a closed-form manner, or (2) by solving an SDP problem for each training minibatch.
+\paragraph{Proposed Thesis Topic:} We propose a novel algorithm to ameliorate the instability from off-policy TD. This algorithm is based on the principles of \cite{kolter2011fixed}, and would work by either (1) computing reweighting factors in a closed-form manner, or (2) by solving an SDP problem for each training minibatch.
 
 \section{Background}
-
-\subsection{Training Instability due to the Deadly Triad }
 
 The background to the instability is explained by \citet[p.~264]{sutton2020reinforcement}, and the linear case is analyzed in detail by \citet{kolter2011fixed}. The intuition behind this is that the TD fixed point when sampling on-policy is at the solution of the Bellman equation:
 \begin{align}
@@ -79,25 +88,9 @@ The background to the instability is explained by \citet[p.~264]{sutton2020reinf
 \intertext{where $\Pi_\mu = \Phi (\Phi^\top D \Phi)^{-1} \Phi^\top D$ projects the Bellman backup onto the columnspace of $\Phi$, reweighted by the diagonal matrix $D = \text{diag}(\mu)$. This yields the closed-form solution:}
 \vec w & = A^{-1} \vec b
 \intertext{Where $A = \Phi^\top D (I - \gamma P) \Phi$ and $\vec b = \Phi^\top D R$. Under ridge regularization, some small $\eta$ is added to the diagonal of $A$ to ensure that the matrix being inverted is positive definite: }
-\vec w & = (A + \eta I)^{-1} \vec b
+\vec w & = (A + \eta I)^{-1} \vec b \label{eqn:w}
 \end{align}
-The intuition behind the training instability is that, for some $\mu$, the matrix $A$ is ill-conditioned or singular, causing the inverse to become arbitrarily large or undefined.
-This training instability occurs even when the bases $\Phi$ can almost exactly represent the value function, as illustrated in Figure~\ref{fig:fixedpoint}.
-
-\subsubsection{Kolter's Non-Expansion Criterion }
-
-\cite{kolter2011fixed} charactizes a convex set of distributions under which the TD updates are guaranteed to be non-expansive. To do this, he writes down this inequality concerning the $D$-norm of the learned value function through one Bellman update:
-\begin{align}
-    \|\Pi_D P\Phi \vec w\|_D \leq \|\Phi \vec w\|
-\intertext{This is true if and only if the matrix $F$ is positive semi-definite}
-    F_D \equiv \begin{bmatrix}
-        \Phi^\top D \Phi & \Phi^\top D P \Phi \\
-        \Phi^\top P^\top D \Phi & \Phi^\top D \Phi
-    \end{bmatrix} \succcurlyeq 0 \label{eqn:koltercondmat}
-\end{align}
-
-We can applying this to data by reweighting incoming samples so that they are consistent with a distribution that satisfies Equation~\ref*{eqn:koltercondmat}. To do this, consider the sampling distribution $\mu(s)$, $s \in \mathcal S$ and the transition distribution $p(s,s') = \mu(s) p(s'|s)$. We wish to find an alternative distribution $q(s)$ under which TD is guaranteed to converge. We do so 
-
+The intuition behind the training instability is that, for some $\mu$, the matrix $A$ is ill-conditioned or singular, causing the inverse to become arbitrarily large or undefined. This training instability occurs even when the bases $\Phi$ can almost exactly represent the value function.
 
 \label{sec:deadlytriadnaive}
 \begin{figure}[!p]
@@ -106,11 +99,106 @@ We can applying this to data by reweighting incoming samples so that they are co
   \label{fig:mdp}
 \end{figure}
 
+\paragraph{Reference Example} There are three examples of this TD runaway common in the literature: the classic Tsitsiklis and Van Roy $(w, 2w)$ example \cite[p.~260]{sutton2020reinforcement}, Kolter's example \cite{kolter2011fixed}, and Baird's counterexample which shows how training instability can exist despite overparameterization \cite{baird1993counterexample}. As explained later, these examples are susceptible to regularization, and so we propose our own novel Markov Reward Process (MRP) to illustrate this effect.
+
+Consider the three-state MRP in Figure~\ref{fig:mdp}, with the stationary distribution $\pi$, value function $V$, and value function basis $\Phi$ as indicated. We arbitrarily choose a discount factor $\gamma = 0.99$, and compute the reward function $R \gets (I-\gamma P)V$. The representation error $\|\Pi_D V - V\| \leq \epsilon$ is small by construction.
+Closely following the derivation in \cite{kolter2011fixed}, we show that (when $\eta=0$) there is some off-policy distribution $\mu$ such that the error in the value function learned by TD is unbounded. To do this, we set $\mu = [\sfrac p2, \sfrac p2, 1-p]$ to be a sampling distribution parameterized by $p \in [0..1]$ and find a value of $p$ around which the matrix $A$ is ill-conditioned. Solving $\det(A) = 0$, we obtain:
+\begin{align}
+  p & = \frac{40400\epsilon^2 + 45240\epsilon + 2961}{40400\epsilon^2 + 84840\epsilon + 4141}\label{eqn:simplep}
+\end{align}
+Since this solution is in the range $[0, 1]$ for all positive $\epsilon$, there is always some sampling distribution parameter $p$ at which $A$ is ill-conditioned, and hence $A^{-1}$ can be made arbitrarily large by selecting a point close to $p$. We can therefore obtain any error, which completes this introductory example.
+
+We plot the relationship between TD error and $p$ in Figure~\ref{fig:fixedpoint}. The two key features of this are: first, the error is smallest when the sampling distribution $\mu$ is close to the stationary distribution $\pi$ close to $p=0.5$. Second, the error only asymptotically diverges at specific off-policy distributions, notably at about $p=0.715$. It remains low everywhere else.
+
+%%
 \begin{figure}[!p]
     \input{fixedpoint/fixedpoint.tex}
     \caption{We plot TD error against $p$ for the MDP in Figure~\ref{fig:fixedpoint} with $\epsilon=10^{-4}$. This shape is characteristic of TD models in the presence of the deadly triad, including a minima close to $\pi$ ($p=0.5$), and an asymptote at the singular point ($p\approx 0.715$). At different levels of regularization the error function moves between the unregularized case ($\eta=0$) and the limiting case ($\eta\to\infty$).}
     \label{fig:fixedpoint}
 \end{figure}
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+This is a well-known problem in the literature with many training strategies developed for it, both theoretical and practical. We select some key strategies for discussion here.
+
+\subsection{Ridge Regularization}
+
+One classic solution to this problem is to adopt some sort of regularization to avoid unbounded error or divergence. \emph{Ridge regularization} (RR) \cite{tikhonov1943stability} is the most popular regularization strategy by far, which is generally understood to bound the worst-case error in exchange for biasing the model and potentially increasing the error everywhere else. RR works by penalizing the $\mathcal L_2$-norm of model weights, which limits the scale of the predicted values and the model output. When used to evaluate the deadly triad on three common examples \cite[pg.260]{kolter2011fixed,baird1993counterexample,sutton2020reinforcement}, RR appears to be able to effectively mitigate the worst of the divergence. Consequently, it has become an essential assumption made by many RL algorithms \cite{diddigi2019convergent,mahadevan2014proximal,sutton2009fast,yu2017convergence,zhang2020provably,zhang2021breaking} and is viewed in the literature as a routine and innocuous assumption. Our previous work \citep{manek2022pitfalls} challenges that assumption by introducing counterexamples that shows that training instability is \emph{not} solved by the use of RR.
+
+\paragraph{RR admits vacuous models} Instead of using asymptotic error as a measure of divergence, we define a \emph{vacuous model} as one that, for all $\eta$, never performs better than the limiting error at $\eta\to\infty$. (At the limit $\eta\to\infty$, all model weights are zero and so is the model output.) Intuitively, a vacuous model is one that never does better than always predicting zeros.
+
+Even though RR \emph{appears} to mitigate the training instability, it merely hides it. This can be observed in Figure~\ref{fig:fixedpoint}, which illustrates the effect of RR on the error landscape in our three-state MRP. While RR blunts the asymptote, it increases the error everywhere quickly enough that there is some off-policy distribution under which TD learns always learns a vacuous model despite any amount of regularization. In previous work \citep{manek2022pitfalls}, we identified the exact point and proved this.
+
+\paragraph{RR and small-eta divergence}
+Further, there is a general assumption in the literature that RR monotonically shrinks the learned weights and model output. While this is true in classification, regression, and other non-bootstrapping contexts this is \emph{not} true in TD. Because TD repeatedly bootstraps values it is possible for small amounts of model bias to be magnified and induce model divergence.
+From Equation~\ref{eqn:w}, we can see that RR ensures the matrix $(A + \eta I)$ is positive definite and therefore invertible without blowing up. This is necessary because, under off-policy distributions, it is possible for $A$ to have eigenvalues that are negative or zero. Adding just the right value of $\eta$ can move these negative eigenvalues arbitrarily close to zero, inducing a correspondingly large error.
+
+We emphasize that this is not just an theoretical concern--we can demonstrate this in the neural network case. Using a 9-state variant of our example and a randomly-assigned value function, and we train 100 randomly-initialized models to convergence. We plot the mean and the $10^\text{th}$--$90^\text{th}$ percentile range in Figure~\ref{fig:multilayerperformance} (left), with and without RR. 
+Because we are now working with neural networks and not linear models TD is able to learn models without asymptotes. Since we cannot use asymptotic error to diagnose model divergence, we instead assume that models that perform worse than guessing zero have diverged. Figure~\ref{fig:multilayerperformance} plots this threshold ($\|V\|_2$, dashed grey line). We observe that despite regularization our models perform worse than guessing zero under some off-policy distributions, notably in the domain $p\in[0.1, 0.4]$. This shows that training instability from off-policy learning carries over to the neural network case.
+
+We also plot the TD error against the RR parameter $\eta$ at a fixed off-policy distribution (Fig.~\ref{fig:multilayerperformance}, right). We observe that around $\eta\approx 10^{-3}$ the TD Error unexpectedly \emph{increases} before decreasing. The classic intuition of how ridge regularization works is that it monotonically crushes model parameters (and hence predictions) towards zero, but because TD learns by bootstrapping, the same intuition does not carry over.
+
+\begin{figure}
+    \input{multilayerperf/multilayerperf.tex}
+    \caption{On the left we present the mean and $10^\text{th}$--$90^\text{th}$ percentile range of 100 randomly-initialized NN models trained to convergence. On the right we present the relationship between error and the RR parameter $\eta$ at a specific off-policy distribution. We annotate both charts with $\|V\|_2$, which corresponds to the error from guessing zeros. }
+    \label{fig:multilayerperformance}
+  \end{figure}
+
+
+\subsubsection{In the literature}
+
+To show that relying on RR is a risky decision to make, we further analyzed our three-state MRP example in the context of the algorithm in \emph{Breaking the Deadly Triad} \citep{zhang2021breaking}. In that paper, the authors assume the use of RR to derive bounds on the learned error under off-policy sampling. We are able to show that their bounds are very loose on our example, permitting vacuous models.
+
+Ridge regularization is particularly common when proving that some training method converges despite a changing sampling policy. This is seen in GTD (analyzed in \cite{yu2017convergence}), GTD2 \cite{sutton2009fast}, RO-TD \cite{mahadevan2014proximal}, and COF-PAC \cite{zhang2020provably}. This assumption may also be used to ensure convergence when training with a target network \cite{zhang2021breaking}. Despite the prevalence of ridge regularization, the induced bias from using it is not well studied in the literature. It is sometimes even dismissed as a mere technical assumption, as in \cite{diddigi2019convergent}. A key conclusion of our prior work contradicts that; using ridge regularization for convergence proofs induces bias that may hinder performance.
+
+RR penalizes the $\mathcal L_2$-norm of the learned weights; it is also possible to use $\mathcal L_1$ regularization with a proximal operator/saddle point formulation as in \cite{mahadevan2014proximal}, or any convex regularization term under a fixed target policy \cite{yu2017convergence}. Instead of directly regularizing the weights, COP-TD uses a discounted update \cite{gelada2019off}. DisCor \cite{kumar2020discor} propagates bounds on Q-value estimates to quickly converge TD learning in the face of large bootstrapping error; it is not clear if DisCor can overcome off-policy sampling. A separate primal-dual saddle point method has also been adapted to ridge regularization \cite{du2017stochastic} and is known to converge under deadly triad conditions, error bounds of this convergence are not yet known.
+
+
+\subsection{Emphatic-TD Style Algorithms}
+
+Emphatic-TD \cite{sutton2016emphatic} fixes the fundamental problem in off-policy TD by reweighing updates so they appear on-policy. The core idea underlying these techniques is to estimate the ``followon trace'' for each state, the (weighted, $\lambda$- and $\gamma-$discounted) probability mass of all states whose value estimates it influences. This trace is then used to estimate the emphasis, which is the reweighting factor for each update. While this family of methods is provably optimal in expectation, it is subject to tremendous variance in theory and practice, especially when the importance is estimated using Monte-Carlo sampling.\footnote{Sutton and Barto's textbook \cite{sutton2020reinforcement} says about Emphatic-TD that ``it is
+nigh impossible to get consistent results in computational experiments.'' (when applied to Baird's example). } In practice, these methods learn the follow-on trace using TD \cite{jiang2021learning,zhang2020provably} or similar \cite{hasselt2021expected}, which makes them vulnerable to bias induced by the use of regularization.
+
+
+
+
+\subsection{Model-Value Expansion}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Kolter's Non-Expansion Criterion }
+
+In an approach distinct from those proposed so far, \cite{kolter2011fixed} proposes selecting a convex set of ``safe'' distributions and reweighting data so it appears to come from such a distribution. This algorithm, known as TD-DO, is different from Emphatic-TD in that the distribution after reweighting in TD-DO is not necessarily the on-policy distribution, which allows for greater flexibility in training.
+
+These safe distributions are those under which TD updates are guaranteed to be non-expansive. To do this, he writes down this inequality concerning the $D$-norm of the learned value function through one Bellman update, where $D=\text{diag}(\mu)$:
+\begin{align}
+    \|\Pi_D P\Phi \vec w\|_D & \leq \|\Phi \vec w\|
+\intertext{This is true if and only if the matrix $F_D$ is positive semi-definite}
+    F_D \equiv & \begin{bmatrix}
+        \Phi^\top D \Phi & \Phi^\top D P \Phi \\
+        \Phi^\top P^\top D \Phi & \Phi^\top D \Phi
+    \end{bmatrix} \succcurlyeq 0 \label{eqn:koltercondmat}
+\intertext{This can be written in terms of an expectation over the sampling distribution $\mu$. Let $\mu(s)$ be the PDF of state $s \in \mathcal S$, and the transition distribution $p(s,s') = \mu(s) p(s'|s)$. This condition is equivalent to:}
+    \E_{s\sim \mu, s'\sim p(s'|s)} & \left[\begin{bmatrix}
+        \phi(s)\phi(s)^\top & \phi(s)\phi(s')^\top \\
+        \phi(s')\phi(s)^\top & \phi(s)\phi(s)^\top
+    \end{bmatrix}\right] \succcurlyeq 0 \label{eqn:koldercondstate}
+\intertext{For convenience, we write down the per-state contribution to this expectation as:}
+F(s) = \E_{s'\sim p(s'|s)} & \left[\begin{bmatrix}
+    \phi(s)\phi(s)^\top & \phi(s)\phi(s')^\top \\
+    \phi(s')\phi(s)^\top & \phi(s)\phi(s)^\top
+\end{bmatrix}\right]
+\intertext{This allows us to write Equation~\ref*{eqn:koldercondstate}:}
+\E_{s\sim \mu} & [F(s)] \succcurlyeq 0
+\intertext{In practice this condition does not always hold at $\mu$. We can apply this insight to data by reweighting incoming samples so they are consistent with a different distribution $q$ such that:}
+\E_{s~\sim q} & [F(s)] \succcurlyeq 0
+\intertext{For input data $(x_1, x_2, \ldots)$, this is the same as finding a set of weights $q_1, q_2, \ldots$ such that:}
+\sum_i q_i & \cdot F(x_i) \succcurlyeq 0
+\intertext{We also need to constrain our choice of distribution $q$ to ensure the quality of the solution. \citet{kolter2011fixed} achieve this by selecting $q$ that solves this optimization problem}
+    \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0
+\end{align}
+explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem.
+
 
 \begin{figure}
     \input{emphasistd/emphasistd.tex}
@@ -120,25 +208,13 @@ We can applying this to data by reweighting incoming samples so that they are co
 
 \clearpage
 
-\appendix
-\section*{Appendix }
-
-\paragraph{Deadly-Triad instability}
-
-
-\paragraph{Adjacent Research Questions}
-We may also pivot to answer some of these questions:
-
-\begin{enumerate}
-    \item With multi-layer networks, we can construct some examples in which some off-policy distributions are better than the on-policy distribution. What are the conditions for this and can we design an RL algorithm to exploit this?
-    \item How common is deadly-triad caused instability in large RL problems? Which part of the problem structure is most likely to cause this, and can we transform the MDP to eliminate this possibility?
-\end{enumerate}
-
+% \bibliographystyle{plain}
+\bibliography{biblio.bib}
 
 \clearpage
 
-% \bibliographystyle{plain}
-\bibliography{biblio.bib}
+\appendix
+\section*{Appendix }
 
 \end{document}
  
