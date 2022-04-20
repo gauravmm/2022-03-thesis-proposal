@@ -17,15 +17,15 @@
         \addplot[dashed,color=black] table [x=p, y=v0err] {multilayerperf/basic.dat}
             node[below,pos=0.2] {$\|V\|_2$};
 
-        \addplot[color=red,very thick] table [x=p, y=mean] {multilayerperf/dump_3_0.dat};
-        \addplot[color=red,very thin,name path=lcb,] table [x=p, y=conf_05] {multilayerperf/dump_3_0.dat};
-        \addplot[color=red,very thin,name path=ucb,] table [x=p, y=conf_95] {multilayerperf/dump_3_0.dat};
-        \addplot[pattern=crosshatch,pattern color=red!50,area legend] fill between[of=lcb and ucb];
+        \addplot[color=viridis03,very thick] table [x=p, y=mean] {multilayerperf/dump_3_0.dat};
+        \addplot[color=viridis03,very thin,name path=lcb,] table [x=p, y=conf_05] {multilayerperf/dump_3_0.dat};
+        \addplot[color=viridis03,very thin,name path=ucb,] table [x=p, y=conf_95] {multilayerperf/dump_3_0.dat};
+        \addplot[pattern=crosshatch,pattern color=viridis03!50,area legend] fill between[of=lcb and ucb];
 
-        \addplot[color=blue,very thick] table [x=p, y=mean] {multilayerperf/dump_3_0.001.dat};
-        \addplot[color=blue,very thin,name path=lcb,] table [x=p, y=conf_05] {multilayerperf/dump_3_0.001.dat};
-        \addplot[color=blue,very thin,name path=ucb,] table [x=p, y=conf_95] {multilayerperf/dump_3_0.001.dat};
-        \addplot[blue!15,area legend] fill between[of=lcb and ucb];
+        \addplot[color=viridis06,very thick] table [x=p, y=mean] {multilayerperf/dump_3_0.001.dat};
+        \addplot[color=viridis06,very thin,name path=lcb,] table [x=p, y=conf_05] {multilayerperf/dump_3_0.001.dat};
+        \addplot[color=viridis06,very thin,name path=ucb,] table [x=p, y=conf_95] {multilayerperf/dump_3_0.001.dat};
+        \addplot[viridis06!15,area legend] fill between[of=lcb and ucb];
 
         \legend{,,,,unregularized,regularized}
     \end{axis}
@@ -42,10 +42,10 @@
     xlabel={RR parameter $\eta$},
     xmode=log,
     ]
-        \addplot[color=blue,very thick] table [x=eta, y=mean] {multilayerperf/etas_p_0.31.dat};
-        \addplot[color=blue,very thin,name path=lcb,] table [x=eta, y=conf_05] {multilayerperf/etas_p_0.31.dat};
-        \addplot[color=blue,very thin,name path=ucb,] table [x=eta, y=conf_95] {multilayerperf/etas_p_0.31.dat};
-        \addplot[blue!15] fill between[of=lcb and ucb];
+        \addplot[color=viridis09,very thick] table [x=eta, y=mean] {multilayerperf/etas_p_0.31.dat};
+        \addplot[color=viridis09,very thin,name path=lcb,] table [x=eta, y=conf_05] {multilayerperf/etas_p_0.31.dat};
+        \addplot[color=viridis09,very thin,name path=ucb,] table [x=eta, y=conf_95] {multilayerperf/etas_p_0.31.dat};
+        \addplot[viridis09!15] fill between[of=lcb and ucb];
 
         \addplot[dashed,color=black] table [x=eta, y=v0err] {multilayerperf/basic.dat};
     \end{axis}

@@ -16,18 +16,19 @@
 \usepackage{amsmath,amsthm,amssymb,bm}
 \usepackage{comment,todonotes}
 \usepackage{graphicx}
-\usepackage{natbib}
+\usepackage[natbib]{biblatex}
 \usepackage{fancyhdr,sectsty}
 \usepackage{fontspec}
 \usepackage{caption,subcaption}
 \usepackage{minibox}
-\usepackage{parskip}
+\usepackage{parskip,setspace}
 \usepackage[nottoc,numbib]{tocbibind} % Add bibliography to TOC
 
-\newfontfamily\OpenSans[Letters=SmallCaps]{Open Sans}[Scale=MatchLowercase]
+\newfontfamily\OpenSans{Open Sans}[Scale=MatchLowercase]
 \newfontfamily\SourceSerifPro{Source Serif Pro}[Scale=MatchLowercase,Ligatures=TeX]
 
-\bibliographystyle{abbrvnat}
+%\bibliographystyle{abbrvnat}
+\bibliography{biblio.bib}
 
 \pgfplotsset{compat=1.18}
 \usetikzlibrary{pgfplots.groupplots,positioning,fit,patterns,decorations.pathreplacing}
@@ -42,6 +43,8 @@
 \textheight=8.5in
 \headsep=0.15in
 
+\onehalfspacing
+
 %\pagestyle{fancy}
 %\fancyhf{}
 %\lhead{Gaurav Manek}
@@ -53,6 +56,19 @@
 \date{\today}
 
 \newcommand{\E}{\textbf{E}}
+
+% Color Scheme
+\definecolor{viridis00}{RGB}{253, 231, 37}
+\definecolor{viridis01}{RGB}{181, 222, 43}
+\definecolor{viridis02}{RGB}{110, 206, 88}
+\definecolor{viridis03}{RGB}{53, 183, 121}
+\definecolor{viridis04}{RGB}{31, 158, 137}
+\definecolor{viridis05}{RGB}{38, 130, 142}
+\definecolor{viridis06}{RGB}{49, 104, 142}
+\definecolor{viridis07}{RGB}{62, 73, 137}
+\definecolor{viridis08}{RGB}{72, 40, 120}
+\definecolor{viridis09}{RGB}{68, 1, 84}
+
 
 \begin{document}
 
@@ -121,7 +137,7 @@ The former attempts to regularize TD, with $\mathcal L_2$-norm weight regulariza
 The second line started with Emphatic-TD, in which \citet{sutton2016emphatic} note that it is possible to reweight samples obtained off-policy so they appear to be on-policy. Such methods learn the follow-on trace using Monte-Carlo methods (in the original) and/or TD \citep{jiang2021learning,zhang2020provably} or techniques similar to TD \citep{hasselt2021expected}.
 
 Current work on deadly-triad-associated training instability is typically evaluated on three standard examples. However, it is possible to regularize training to mitigate divergence in these, and ridge regularization (RR) is used for that in the literature.
-In a paper that is in preparation, we introduce a new counterexample (in Figure~\ref{fig:mdp}) that is resistant to regularization. As expected, vanilla TD-based algorithms converge with arbitrarily poor performance for some off-policy distributions ($\eta=0$ line in Figure~\ref{fig:fixedpoint}), and regularization appears to blunt the asymptote ($\eta > 0$ lines). Part of our contribution is that there is a distribution at which the model never performs better than always guessing zeros (i.e. at the limit of RR $\eta\to\infty$) despite any amount of RR, and hence the model is \emph{vacuous}. This problem persists in any algorithm that converges to the same point as naive TD, which covers a wide swath of the extant literature; we make our analysis concrete by showing how this example forces the error bounds derived by \citet{zhang2021breaking} to permit vacuous solutions.
+In a paper that is in preparation, we introduce a new counterexample (in Figure~\ref{fig:mdp}) that is resistant to regularization. As expected, vanilla TD-based algorithms converge with arbitrarily poor performance for some off-policy distributions ($\eta=0$ line in Figure~\ref{fig:fixedpointp}), and regularization appears to blunt the asymptote ($\eta > 0$ lines). Part of our contribution is that there is a distribution at which the model never performs better than always guessing zeros (i.e. at the limit of RR $\eta\to\infty$) despite any amount of RR, and hence the model is \emph{vacuous}. This problem persists in any algorithm that converges to the same point as naive TD, which covers a wide swath of the extant literature; we make our analysis concrete by showing how this example forces the error bounds derived by \citet{zhang2021breaking} to permit vacuous solutions.
 
 In the same paper, we show how modern Emphatic algorithms that use TD to learn the reweighting function are vulnerable to the bias introduced by RR. These algorithms (near-universally) assume RR so they converge despite changing policies. We construct a counterexample (Figure~\ref{fig:emphasisplots}) in which the emphasis and value models converge correctly (red circles) when unregularized, but adding regularization causes them to catastrophically diverge (blue circles).
 
@@ -131,7 +147,7 @@ The focus of our work has now moved on to effectively mitigating this in a manne
 
 \paragraph{Proposed Thesis Topic:} We propose a novel algorithm to ameliorate the instability from off-policy TD. This algorithm is based on the principles of \cite{kolter2011fixed}, and would work by either (1) computing reweighting factors in a closed-form manner, or (2) by solving an SDP problem for each training minibatch.
 
-\section{Background}
+\section{Background and Our Work}
 
 The background to the instability is explained by \citet[p.~264]{sutton2020reinforcement}, and the linear case is analyzed in detail by \citet{kolter2011fixed}. The intuition behind this is that the TD fixed point when sampling on-policy is at the solution of the Bellman equation:
 \begin{align}
@@ -148,7 +164,7 @@ The intuition behind the training instability is that, for some $\mu$, the matri
 \label{sec:deadlytriadnaive}
 \begin{figure}[!p]
   \input{threestate.tex}
-  \caption{Our three-state counter-example MDP. We use this to illustrate how the deadly triad problem persists despite common mitigating strategies. Rewards are set consistent with $V$, and the weights $\vec w$ are trained via TD to minimize $\|\Phi \vec w - V \|$. A small non-zero $\epsilon$ ensures there is some representation error to force the model to approximate the value function: $\|\Phi(\Phi^\top \Phi)^{-1}\Phi^\top V - V \| \leq \epsilon$. }
+  \caption{Our three-state counter-example MDP. We use this to illustrate how the deadly triad problem persists despite common mitigating strategies. Rewards are set consistent with $V$, and the weights $\vec w$ are trained via TD to minimize $\|\Phi \vec w - V \|$. A small non-zero $\epsilon$ ensures there is some small representation error: $\|\Phi(\Phi^\top \Phi)^{-1}\Phi^\top V - V \| \leq \epsilon$. }
   \label{fig:mdp}
 \end{figure}
 
@@ -161,46 +177,78 @@ Closely following the derivation in \cite{kolter2011fixed}, we show that (when $
 \end{align}
 Since this solution is in the range $[0, 1]$ for all positive $\epsilon$, there is always some sampling distribution parameter $p$ at which $A$ is ill-conditioned, and hence $A^{-1}$ can be made arbitrarily large by selecting a point close to $p$. We can therefore obtain any error, which completes this introductory example.
 
-We plot the relationship between TD error and $p$ in Figure~\ref{fig:fixedpoint}. The two key features of this are: first, the error is smallest when the sampling distribution $\mu$ is close to the stationary distribution $\pi$ close to $p=0.5$. Second, the error only asymptotically diverges at specific off-policy distributions, notably at about $p=0.715$. It remains low everywhere else.
+We plot the relationship between TD error and $p$ in Figure~\ref{fig:fixedpointp}. The two key features of this are: first, the error is smallest when the sampling distribution $\mu$ is close to the stationary distribution $\pi$ close to $p=0.5$. Second, the error only asymptotically diverges at specific off-policy distributions, notably at about $p=0.715$. It remains low everywhere else.
 
 %%
 \begin{figure}[!p]
-    \input{fixedpoint/fixedpoint.tex}
-    \caption{We plot TD error against $p$ for the MDP in Figure~\ref{fig:fixedpoint} with $\epsilon=10^{-4}$. This shape is characteristic of TD models in the presence of the deadly triad, including a minima close to $\pi$ ($p=0.5$), and an asymptote at the singular point ($p\approx 0.715$). At different levels of regularization the error function moves between the unregularized case ($\eta=0$) and the limiting case ($\eta\to\infty$).}
-    \label{fig:fixedpoint}
+    \input{fixedpointp/fixedpoint.tex}
+    \caption{We plot TD error against $p$ for the MDP in Figure~\ref{fig:mdp} with $\epsilon=10^{-4}$. This shape is characteristic of TD models in the presence of the deadly triad, including a minima close to $\pi$ ($p=0.5$), and an asymptote at the singular point ($p\approx 0.715$). At different levels of regularization the error function moves between the unregularized case ($\eta=0$) and the limiting case ($\eta\to\infty$).}
+    \label{fig:fixedpointp}
 \end{figure}
 %%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 This is a well-known problem in the literature with many training strategies developed for it, both theoretical and practical. We select some key strategies for discussion here.
 
+\newcommand{\subsectionsubtitle}[1]{\emph{#1}}
+
 \subsection{Ridge Regularization}
+\subsectionsubtitle{Contains work from \cite{manek2022pitfalls}: \citetitle{manek2022pitfalls}~(\citeauthor{manek2022pitfalls},~\citeyear{manek2022pitfalls})}
 
 One classic solution to this problem is to adopt some sort of regularization to avoid unbounded error or divergence. \emph{Ridge regularization} (RR) \cite{tikhonov1943stability} is the most popular regularization strategy by far, which is generally understood to bound the worst-case error in exchange for biasing the model and potentially increasing the error everywhere else. RR works by penalizing the $\mathcal L_2$-norm of model weights, which limits the scale of the predicted values and the model output. When used to evaluate the deadly triad on three common examples \cite[pg.260]{kolter2011fixed,baird1993counterexample,sutton2020reinforcement}, RR appears to be able to effectively mitigate the worst of the divergence. Consequently, it has become an essential assumption made by many RL algorithms \cite{diddigi2019convergent,mahadevan2014proximal,sutton2009fast,yu2017convergence,zhang2020provably,zhang2021breaking} and is viewed in the literature as a routine and innocuous assumption. Our previous work \citep{manek2022pitfalls} challenges that assumption by introducing counterexamples that shows that training instability is \emph{not} solved by the use of RR.
 
-\paragraph{RR admits vacuous models} Instead of using asymptotic error as a measure of divergence, we define a \emph{vacuous model} as one that, for all $\eta$, never performs better than the limiting error at $\eta\to\infty$. (At the limit $\eta\to\infty$, all model weights are zero and so is the model output.) Intuitively, a vacuous model is one that never does better than always predicting zeros.
+\subsubsection{RR admits vacuous models}
+Instead of using asymptotic error as a measure of divergence, we define a \emph{vacuous model} as one that, for all $\eta$, never performs better than the limiting error at $\eta\to\infty$. (At the limit $\eta\to\infty$, all model weights are zero and so is the model output.) Intuitively, a vacuous model is one that never does better than always predicting zeros.
 
-Even though RR \emph{appears} to mitigate the training instability, it merely hides it. This can be observed in Figure~\ref{fig:fixedpoint}, which illustrates the effect of RR on the error landscape in our three-state MRP. While RR blunts the asymptote, it increases the error everywhere quickly enough that there is some off-policy distribution under which TD learns always learns a vacuous model despite any amount of regularization. In previous work \citep{manek2022pitfalls}, we identified the exact point and proved this.
+Even though RR \emph{appears} to mitigate the training instability, it merely hides it. This can be observed in Figure~\ref{fig:fixedpointp}, which illustrates the effect of RR on the error landscape in our three-state MRP. While RR blunts the asymptote, it increases the error everywhere quickly enough that there is some off-policy distribution under which TD learns always learns a vacuous model despite any amount of regularization. In previous work \citep{manek2022pitfalls}, we identified the exact point and proved this.
 
-\paragraph{RR and small-eta divergence}
+\todo{Add more explanation here. }
+
+\subsubsection{RR and small-eta divergence}
 Further, there is a general assumption in the literature that RR monotonically shrinks the learned weights and model output. While this is true in classification, regression, and other non-bootstrapping contexts this is \emph{not} true in TD. Because TD repeatedly bootstraps values it is possible for small amounts of model bias to be magnified and induce model divergence.
-From Equation~\ref{eqn:w}, we can see that RR ensures the matrix $(A + \eta I)$ is positive definite and therefore invertible without blowing up. This is necessary because, under off-policy distributions, it is possible for $A$ to have eigenvalues that are negative or zero. Adding just the right value of $\eta$ can move these negative eigenvalues arbitrarily close to zero, inducing a correspondingly large error.
+From Equation~\ref{eqn:w}, we can see that RR ensures the matrix $(A + \eta I)$ is positive definite and therefore invertible without blowing up. This is necessary because, under off-policy distributions, it is possible for $A$ to have eigenvalues that are negative or zero.
 
-We emphasize that this is not just an theoretical concern--we can demonstrate this in the neural network case. Using a 9-state variant of our example and a randomly-assigned value function, and we train 100 randomly-initialized models to convergence. We plot the mean and the $10^\text{th}$--$90^\text{th}$ percentile range in Figure~\ref{fig:multilayerperformance} (left), with and without RR. 
+In the literature, it is commonly assumed that $A$ is ``nearly'' positive definite (that is, only a few eigenvalues are non-positive, and those are close to zero.). One interpretation of RR is that it increases those eigenvalues to ensure the matrix $(A + \eta I)$ is positive definite. However, adding just the right value of $\eta$ can move these negative eigenvalues arbitrarily close to zero, inducing a correspondingly large bias.
+This small-$\eta$ divergence effect can appear in several ways, illustrated in Figure~\ref{fig:etagraph}. Typically, this appears as one or more points at which TD error diverges at some $\eta$ before the region at which RR ``improves'' the model (that is, reduces the model error below $\|V\|$). This suggests that by setting a lower bound $\eta_0$ we can guarantee that $(A + \eta I)$ is positive definite for all $\eta > \eta_0$. The third example in Figure~\ref{fig:etagraph} contradicts this intuition: increasing RR to an improved model can also make it diverge. If we set $\eta_0$ to prohibit divergence, the resultant model is vacuous.
+
+\begin{figure}[p]
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \input{smalleta/smalleta.tex}
+    \vspace{-1.25em}
+    \caption{Different MPs at off-policy distributions selected to show small-$\eta$ divergence. Divergence may occur at multiple $\eta$, and may even occur \emph{after} the $\eta$ that minimizes TD error. }
+    \label{fig:etagraph}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \input{fixedpointeta/fixedpoint.tex}
+    \vspace{-1.25em}
+    \caption{Three off-policy distributions for a five-state MP, with mutually incompatible $\eta$. The optimal $\eta$ for any one distribution strongly over- or under-regularizes the error at the other distributions. }
+    \label{fig:mismatchedeta}
+  \end{subfigure}
+    \caption{We plot TD error against $\eta$ to show small-$\eta$ divergence (left) and mututally-incompatible $\eta$ (right). We also plot the error at the limit of RR $\|V\|$ and the representation error $\epsilon$. }
+\end{figure}
+
+\paragraph{In Neural Networks} We emphasize that this is not just an theoretical concern--we demonstrate this in the neural network case using a 9-state variant of our example. We randomly assign a value function and train 100 randomly-initialized models to convergence, plotting the mean and the $10^\text{th}$--$90^\text{th}$ percentile range in Figure~\ref{fig:multilayerperformance} (left), with and without RR. 
 Because we are now working with neural networks and not linear models TD is able to learn models without asymptotes. Since we cannot use asymptotic error to diagnose model divergence, we instead assume that models that perform worse than guessing zero have diverged. Figure~\ref{fig:multilayerperformance} plots this threshold ($\|V\|_2$, dashed grey line). We observe that despite regularization our models perform worse than guessing zero under some off-policy distributions, notably in the domain $p\in[0.1, 0.4]$. This shows that training instability from off-policy learning carries over to the neural network case.
 
 We also plot the TD error against the RR parameter $\eta$ at a fixed off-policy distribution (Fig.~\ref{fig:multilayerperformance}, right). We observe that around $\eta\approx 10^{-3}$ the TD Error unexpectedly \emph{increases} before decreasing. The classic intuition of how ridge regularization works is that it monotonically crushes model parameters (and hence predictions) towards zero, but because TD learns by bootstrapping, the same intuition does not carry over.
 
 \begin{figure}
-    \input{multilayerperf/multilayerperf.tex}
-    \caption{On the left we present the mean and $10^\text{th}$--$90^\text{th}$ percentile range of 100 randomly-initialized NN models trained to convergence. On the right we present the relationship between error and the RR parameter $\eta$ at a specific off-policy distribution. We annotate both charts with $\|V\|_2$, which corresponds to the error from guessing zeros. }
-    \label{fig:multilayerperformance}
-  \end{figure}
+  \input{multilayerperf/multilayerperf.tex}
+  \caption{On the left we present the mean and $10^\text{th}$--$90^\text{th}$ percentile range of 100 randomly-initialized NN models trained to convergence. On the right we present the relationship between error and the RR parameter $\eta$ at a specific off-policy distribution. We annotate both charts with $\|V\|_2$, which corresponds to the error from guessing zeros. }
+  \label{fig:multilayerperformance}
+\end{figure}
 
+\subsubsection{RR and mutually-incompatible parameters}
+
+The best value of $\eta$ depends strongly on the specific off-policy distribution. Selecting a single value that doesn't diverge over all training distributions can lead to values that strongly over-regularize over most distributions. We illustrate this in Figure~\ref{fig:mismatchedeta}, which plots the TD error over $\eta$ for three different off-policy distributions. In this plot, selecting an $\eta$ that minimizes the error at any one distribution will lead to poor or vacuous results in the other two distributions.
+Further complicating this is the use of RR to permit slow distribution change during training, as described in the next section. If the training distribution changes while $\eta$ is fixed then formerly convergent TD may diverge.
 
 \subsubsection{In the literature}
 
-To show that relying on RR is a risky decision to make, we further analyzed our three-state MRP example in the context of the algorithm in \emph{Breaking the Deadly Triad} \citep{zhang2021breaking}. In that paper, the authors assume the use of RR to derive bounds on the learned error under off-policy sampling. We are able to show that their bounds are very loose on our example, permitting vacuous models.
+To show that relying on RR is a risky decision to make, we further analyzed our three-state MRP example in the context of the algorithm in \citetitle{zhang2021breaking} \citep{zhang2021breaking}. In that paper, the authors assume the use of RR to derive bounds on the learned error under off-policy sampling. We are able to show that their bounds are very loose on our example, permitting vacuous models.
 
 Ridge regularization is particularly common when proving that some training method converges despite a changing sampling policy. This is seen in GTD (analyzed in \cite{yu2017convergence}), GTD2 \cite{sutton2009fast}, RO-TD \cite{mahadevan2014proximal}, and COF-PAC \cite{zhang2020provably}. This assumption may also be used to ensure convergence when training with a target network \cite{zhang2021breaking}. Despite the prevalence of ridge regularization, the induced bias from using it is not well studied in the literature. It is sometimes even dismissed as a mere technical assumption, as in \cite{diddigi2019convergent}. A key conclusion of our prior work contradicts that; using ridge regularization for convergence proofs induces bias that may hinder performance.
 
@@ -208,6 +256,7 @@ RR penalizes the $\mathcal L_2$-norm of the learned weights; it is also possible
 
 
 \subsection{Emphatic-TD Style Algorithms}
+\subsectionsubtitle{Contains work from \cite{manek2022pitfalls}: \citetitle{manek2022pitfalls}~(\citeauthor{manek2022pitfalls},~\citeyear{manek2022pitfalls})}
 
 Emphatic-TD \cite{sutton2016emphatic} fixes the fundamental problem in off-policy TD by reweighing updates so they appear on-policy. The core idea underlying these techniques is to estimate the ``followon trace'' for each state, the (weighted, $\lambda$- and $\gamma-$discounted) probability mass of all states whose value estimates it influences. This trace is then used to estimate the emphasis, which is the reweighting factor for each update. While this family of methods is provably optimal in expectation, it is subject to tremendous variance in theory and practice, especially when the importance is estimated using Monte-Carlo sampling.\footnote{Sutton and Barto's textbook \citeyearpar{sutton2020reinforcement} says about Emphatic-TD that ``it is
 nigh impossible to get consistent results in computational experiments.'' (when applied to Baird's example). } 
@@ -215,22 +264,26 @@ There is considerable interest in making this more practical, especially by lear
 
 A leading example of this work is COF-PAC \cite{zhang2020provably}, which uses ridge regularized versions of GTD2 \cite{sutton2009fast} to learn an emphasis model while using that model to also learn a value function. The authors describe RR as essential to their method, particularly when the target policy changes during learning. This reliance on RR makes COF-PAC (and most other TD-based Emphatic algorithms) vulnerable to model bias.
 We illustrate this with a counterexample in which COF-PAC diverges because of its reliance on RR.
-To generate this counterexample, we apply our three-state MRP to COF-PAC, choosing to learn the value function at the off-policy distribution correponding to $p=0.4$. From Figure~\ref{fig:fixedpoint} we can see that $p=0.4$ lies in the stable region of the error landscape, and so regular TD will converge to a reasonable solution; however, we show how COF-PAC diverges.
+To generate this counterexample, we apply our three-state MRP to COF-PAC, choosing to learn the value function at the off-policy distribution correponding to $p=0.4$. From Figure~\ref{fig:fixedpointp} we can see that $p=0.4$ lies in the stable region of the error landscape, and so regular TD will converge to a reasonable solution; however, we show how COF-PAC diverges.
 
-COF-PAC has two main parts, an emphasis function and a value function. At each TD update, the emphasis function is updated and then used to reweight incoming value functions. A convenient way to conceptualize COF-PAC is to think in terms of the ``effective'' distribution $\upsilon(\eta)$ (that is, the net distribution after correction.) This depends on (1) the sampling distribution ($\mu$ or $p$ in our example), (2) the regularization applied to the emphasis model during learning, and (3) the target distribution to correct to, typically $\pi$. In Figure~\ref{fig:emphimp}, we fix the target distribution as $\pi$ and plot the error between $\upsilon(\eta)$ and the target distribution as a function of the sampling distribution. When $\eta=0$ we see that the effective distribution $\upsilon(0)$ (red) has a global minima at $p=0.4$. This means that, in our example, COF-PAC will resample input sampled at $p=0.4$ so it appears to be on-policy and the value function will converge to a good solution!
+COF-PAC has two main parts, an emphasis function and a value function. At each TD update, the emphasis function is updated and then used to reweight incoming value functions. A convenient way to conceptualize COF-PAC is to think in terms of the ``effective'' distribution $\upsilon(\eta)$ (that is, the net distribution after correction.) This depends on (1) the sampling distribution ($\mu$), (2) the regularization applied to the emphasis model during learning, and (3) the target distribution of the correction, typically $\pi$.
 
-However, if the emphasis model is regularized to $\upsilon(2\cdot 10^{-2})$ (blue), then the distribution error is much higher. This is the crux of our counterexample: we are forced to regularize for good convergence guarantees, but regularizing the emphasis model can bias it so the value model diverges. Figure~\ref{fig:emphval} illustrates the divergence: the unregularized emphasis model (red) corresponds to low error in the value function. Regularizing the emphasis model, however, changes the effective distribution of the value model to one in which it diverges (blue). We also show that regularizing the value function separately does not restore performance.
+In Figure~\ref{fig:emphimpetam} plot the distance between the effective distribution $\upsilon(\eta)$ and the target distribution $\pi$ for our example. The unregularized distribution error is low, but adding RR greatly increases the distance between the effective and target distributions.
+Without regularization, COF-PAC will resample input so it appears to be on-policy and the value function will converge to a good solution! With sufficient regularization, COF-PAC will resample input to it appears to follow a different policy and the value function may not converge to a good solution.
 
-Intuitively, there is a fundamental bootstrapping issue in this situation: we use an emphasis models because the value function may not converge to a good solution under TD, but to use the emphasis model we have to assume it converges to a good solution under TD. As we show in \cite{manek2022pitfalls}, the use of RR is not sufficient to guarantee good behavior.
+We illustrate the behavior of the value function in Figure~\ref{fig:emphvaletam}, which plots the relationship between value model error and the RR parameter of the emphasis model $\eta_m$. This shows the result of using a biased emphasis model, notably how it diverges around $\eta_m\approx 2\cdot 10^{-2}$. To complete the example we show that no amount of RR for the value function can improve performance. Figure~\ref{fig:emphvaletav} shows how the value function error varies with respect to our counterexample point: no matter how much we regularize the value function separately, the performance is never substantially better than the error from guessing zero.
+
+Intuitively, there is a fundamental bootstrapping issue in this situation: we use an emphasis models because the value function may not converge to a good solution under TD, but to use the emphasis model we have to assume it converges to a good solution under TD.
 
 \begin{figure}
-  \input{emphasistd/emphasistd.tex}
-  \caption{Ridge regularization distorts the emphasis model (left), which induces the value function (right) to move to a singularity. Unregularized models are in red, regularized in blue. Ridge regularization can interact with emphasis models to significantly worsen learned value functions. }
-  \label{fig:emphasisplots}
+  \input{emphasistdeta/emphasistd.tex}
+  \label{fig:emphasisplotseta}
+  \caption{Ridge regularization on the emphasis model ($\eta_m$) distorts the effective distribution (Figure~\ref{fig:emphimpetam}). Specific values of $\eta_m$ induces the value function to diverge (dashed line at $\eta_m=2\cdot 10^{-4}$, in Figure~\ref{fig:emphvaletam}). When the model diverges, regularizing the value model separately does not restore performance (Figure~\ref{fig:emphvaletav}). Ridge regularization can interact with emphasis models to significantly worsen learned value functions. }
 \end{figure}
 
 
 \subsection{Model-Value Expansion}
+\subsectionsubtitle{Contains unpublished work from \cite{manek2021mve}: \citetitle{manek2021mve}~(\citeauthor{manek2021mve},~\citeyear{manek2021mve})}
 
 We can also factor the value function into parts that are learned without bootstrapping. In unpublished work \cite{manek2021mve} we investigated the use of Model-Value Expansion (MVE) \cite{Feinberg2018ModelBasedVE}.
 The key idea behind MVE is that it is possible to ``unroll'' the computation of a value estimate from a particular state by following a learned dynamics and reward function for a few steps before using a learned value function for the residual value. Since the dynamics and reward function are not bootstrapped, they are not susceptible to divergence from off-policy training. Further, by varying the number of steps and discount factor, it is possible to change the degree of bootstrapping. Informally, this is the modern equivalent to interpolating between Monte-Carlo methods and Bootstrapping, an approach that was explored in the classic RL literature.
@@ -252,6 +305,8 @@ However, we are not able to show, either in theory or practice, that the use of 
 
 
 \subsection{Guaranteed-Stable Functions}
+\subsectionsubtitle{Contains work from \cite{manek2019stable}: \citetitle{manek2019stable}~(\citeauthor{manek2019stable},~\citeyear{manek2019stable})}
+
 Should I talk about the work we did attempting to learn stable policies using the ``Stable Dyanmics Model'' paper? \todo{Ask Zico}
 
 The punchline is that the method can learn stable functions (either value or policy) only when the parameterization is small. Otherwise, it is very sensitive to the exact training distribution and prone to model collapse.
@@ -296,8 +351,7 @@ Do this after we figure out if we're going to submit the TD-DO followup to NeurI
 
 \clearpage
 
-% \bibliographystyle{plain}
-\bibliography{biblio.bib}
+\printbibliography
 
 \clearpage
 
