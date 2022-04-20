@@ -23,6 +23,10 @@
 \usepackage{minibox}
 \usepackage{parskip,setspace}
 \usepackage[nottoc,numbib]{tocbibind} % Add bibliography to TOC
+\usepackage[mathlines]{lineno}
+
+\input{latexhacks/linenomath.tex}
+\input{latexhacks/addplotgraphicsnatural.tex}
 
 \newfontfamily\OpenSans{Open Sans}[Scale=MatchLowercase]
 \newfontfamily\SourceSerifPro{Source Serif Pro}[Scale=MatchLowercase,Ligatures=TeX]
@@ -56,6 +60,7 @@
 \date{\today}
 
 \newcommand{\E}{\textbf{E}}
+\newcommand{\subsectionsubtitle}[1]{\vspace{-0.5em}\textit{#1}\vspace{0.5em}}
 
 % Color Scheme
 \definecolor{viridis00}{RGB}{253, 231, 37}
@@ -128,6 +133,8 @@
 
 \clearpage
 
+\linenumbers
+
 \section{Introduction}
 
 Temporal Difference (TD) learning is used to learn value functions of Markov decision processes (MDPs) using samples following some policy. In Reinforcement Learning (RL), it is necessary to use TD with both function approximation (i.e. neural networks), and off-policy learning. However, these three ingredients are combined, the learned functions exhibit severe instability and divergence. This was first observed by \citet{tsitsiklis1996analysis}, and is known in the literature as the \emph{deadly triad} \cite[p.~264]{sutton2020reinforcement}. While many variants of TD will provably converge despite the training instability, the quality of the solution at convergence is typically arbitrarily poor \citep{kolter2011fixed}.
@@ -139,9 +146,10 @@ The second line started with Emphatic-TD, in which \citet{sutton2016emphatic} no
 Current work on deadly-triad-associated training instability is typically evaluated on three standard examples. However, it is possible to regularize training to mitigate divergence in these, and ridge regularization (RR) is used for that in the literature.
 In a paper that is in preparation, we introduce a new counterexample (in Figure~\ref{fig:mdp}) that is resistant to regularization. As expected, vanilla TD-based algorithms converge with arbitrarily poor performance for some off-policy distributions ($\eta=0$ line in Figure~\ref{fig:fixedpointp}), and regularization appears to blunt the asymptote ($\eta > 0$ lines). Part of our contribution is that there is a distribution at which the model never performs better than always guessing zeros (i.e. at the limit of RR $\eta\to\infty$) despite any amount of RR, and hence the model is \emph{vacuous}. This problem persists in any algorithm that converges to the same point as naive TD, which covers a wide swath of the extant literature; we make our analysis concrete by showing how this example forces the error bounds derived by \citet{zhang2021breaking} to permit vacuous solutions.
 
-In the same paper, we show how modern Emphatic algorithms that use TD to learn the reweighting function are vulnerable to the bias introduced by RR. These algorithms (near-universally) assume RR so they converge despite changing policies. We construct a counterexample (Figure~\ref{fig:emphasisplots}) in which the emphasis and value models converge correctly (red circles) when unregularized, but adding regularization causes them to catastrophically diverge (blue circles).
+In the same paper, we show how modern Emphatic algorithms that use TD to learn the reweighting function are vulnerable to the bias introduced by RR. These algorithms (near-universally) employ RR so they provably converge despite changing policies. We construct a counterexample in which the emphasis and value models converge correctly when unregularized, but adding regularization causes them to catastrophically diverge.
 
 \todo{Mention MVE. }
+\todo{Mention Stable Dynamics Models. }
 
 The focus of our work has now moved on to effectively mitigating this in a manner that is not vulnerable to learning vacuous models or RR-induced bias. We build on the work of \citet{kolter2011fixed}, which derives a condition under which TD is provably stable. Following that work, we have two possible paths. First, we could rewrite the stability criterion so we can compute a closed-form solution for the provably-stable TD update, instead of a nested optimization step. This allows us to reweight updates to be provably stable with only a constant overhead (per iteration) compared to naive TD. Second, we could use Semidefinite Programming (SDP) to compute the reweighting factor for batches of state-transitions. This approach is suitable to larger problems, but we will need to show that the overhead of solving SDPs in the training loop is offset either by better convergence properties or by being able to solve problems that were previously not solvable.
 
@@ -190,10 +198,9 @@ We plot the relationship between TD error and $p$ in Figure~\ref{fig:fixedpointp
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 This is a well-known problem in the literature with many training strategies developed for it, both theoretical and practical. We select some key strategies for discussion here.
 
-\newcommand{\subsectionsubtitle}[1]{\emph{#1}}
-
 \subsection{Ridge Regularization}
 \subsectionsubtitle{Contains work from \cite{manek2022pitfalls}: \citetitle{manek2022pitfalls}~(\citeauthor{manek2022pitfalls},~\citeyear{manek2022pitfalls})}
+\label{sec:rr}
 
 One classic solution to this problem is to adopt some sort of regularization to avoid unbounded error or divergence. \emph{Ridge regularization} (RR) \cite{tikhonov1943stability} is the most popular regularization strategy by far, which is generally understood to bound the worst-case error in exchange for biasing the model and potentially increasing the error everywhere else. RR works by penalizing the $\mathcal L_2$-norm of model weights, which limits the scale of the predicted values and the model output. When used to evaluate the deadly triad on three common examples \cite[pg.260]{kolter2011fixed,baird1993counterexample,sutton2020reinforcement}, RR appears to be able to effectively mitigate the worst of the divergence. Consequently, it has become an essential assumption made by many RL algorithms \cite{diddigi2019convergent,mahadevan2014proximal,sutton2009fast,yu2017convergence,zhang2020provably,zhang2021breaking} and is viewed in the literature as a routine and innocuous assumption. Our previous work \citep{manek2022pitfalls} challenges that assumption by introducing counterexamples that shows that training instability is \emph{not} solved by the use of RR.
 
@@ -278,7 +285,7 @@ Intuitively, there is a fundamental bootstrapping issue in this situation: we us
 \begin{figure}
   \input{emphasistdeta/emphasistd.tex}
   \label{fig:emphasisplotseta}
-  \caption{Ridge regularization on the emphasis model ($\eta_m$) distorts the effective distribution (Figure~\ref{fig:emphimpetam}). Specific values of $\eta_m$ induces the value function to diverge (dashed line at $\eta_m=2\cdot 10^{-4}$, in Figure~\ref{fig:emphvaletam}). When the model diverges, regularizing the value model separately does not restore performance (Figure~\ref{fig:emphvaletav}). Ridge regularization can interact with emphasis models to significantly worsen learned value functions. }
+  \caption{Ridge regularization on the emphasis model ($\eta_m$) distorts the effective distribution (\ref{fig:emphimpetam}). Specific values of $\eta_m$ induces the value function to diverge (dashed line at $\eta_m=2\cdot 10^{-4}$, in \ref{fig:emphvaletam}). When the model diverges, regularizing the value model separately does not restore performance (\ref{fig:emphvaletav}). Ridge regularization can interact with emphasis models to significantly worsen learned value functions. }
 \end{figure}
 
 
@@ -304,48 +311,120 @@ Through statistical analysis of the learned Q-functions, we show that MVE produc
 However, we are not able to show, either in theory or practice, that the use of MVE lessens the propensity of TD to diverge. The mutual dependence between the dynamics models and the learned policy makes this resistant to theoretical analysis, and the natural variance of RL methods makes empirical experimentation cost- and time-prohibitive. As a result we are not pursuing further investigation in this work.
 
 
-\subsection{Guaranteed-Stable Functions}
+\subsection{Guaranteed-Stable Value Functions}
 \subsectionsubtitle{Contains work from \cite{manek2019stable}: \citetitle{manek2019stable}~(\citeauthor{manek2019stable},~\citeyear{manek2019stable})}
 
-Should I talk about the work we did attempting to learn stable policies using the ``Stable Dyanmics Model'' paper? \todo{Ask Zico}
 
-The punchline is that the method can learn stable functions (either value or policy) only when the parameterization is small. Otherwise, it is very sensitive to the exact training distribution and prone to model collapse.
+\begin{figure}
+  \input{stablefn/stable_nn_construction.tex}
+  \caption{We plot the trajectory and the contour of a Lyapunov function of a stable dynamical system and illustrate our method. Let $g( x) = \frac{\nabla V(x)}{\|\nabla V(x)\|_2^2} \mathrm{ReLU}\left(\nabla V(x)^T \hat{f}(x) + \alpha V (x)\right)$. In the first case $\hat f( x)$ has a component $g( x)$ not in the halfspace, which we subtract to obtain $f( x)$. In the second case $\hat f( x)$ is already in the halfspace, so is returned unchanged.}
+  \label{fig:stable_nn_construction}
+\end{figure}
+
+In previous work \cite{manek2019stable} we designed a novel method to learn dynamics models that are provably stable over the entire state space, and attempted to employ these ideas to learn provably stable value functions.
+
+Given a state at time $t$, $x(t) \in \mathbb{R}^n$ we wish to model the time-derivative of the state
+\begin{equation}
+\dot{x}(t) \equiv \frac{d}{dt}x(t) = f(x(t))
+\end{equation}
+for some function $f : \mathbb{R}^n \rightarrow \mathbb{R}^n$ parameterized by a neural network, in a manner that guarantees that $f$ is Lyapunov (or globally exponentially) stable about $x=0$. A generic, unconstrained neural network lacks any stability properties, and prior work in the area typically promotes (but does not guarantee) stability by augmenting the loss function \citep{chow2018lyapunov,richards2018lyapunov,taylor2019episodic}. In order to learn \emph{provably} stable dynamics we jointly learn an unconstrained dynamics function and the certifying Lyapunov function, and then project the unconstrained predictions onto the isohypse (or level-set) of the Lyapunov function.
+
+\paragraph{Lyapunov Functions }
+Lyapunov functions \citep{khalil2002nonlinear,la2012stability} are a mechanism to formally specify and prove stability of functions. Given a continuously differentiable positive definite function $V : \mathbb{R}^n \rightarrow \mathbb{R}$, such that $V(0) = 0$ and $V(x) > 0 \forall x \neq 0$. $V$ certifies that $f$ is stable if and only if $V$ decreases along trajectories generated by $f$. Formally $f$ is Lyapunov-stable under $v$ iff:
+\begin{align}
+    \dot{V}(x(t)) \equiv \frac{d}{dt}V(x(t)) = \nabla V(x)^T \frac{d}{dt} x(t) = \nabla V(x)^T f(x(t)) < 0 & \forall x(t) \in \mathbb{R}^n \label{eqn:lyapunovstable}
+\end{align}
+Similarly $f$ is globally asymptotically stable under $V$ iff Equation~\ref{eqn:lyapunovstable} hold and $V$ decreases at some minimum rate:
+\begin{align}
+    \dot{V}(x(t)) \leq -\alpha V(x(t)), \;\; \mbox{ with } c_1 \|x\|_2^2 \leq V(x) \leq c_2 \|x\|_2^2. \label{eqn:req_for_GAS}
+\end{align}
+
+\subsubsection{Jointly learning dynamics and Lyapunov functions}
+We jointly learn a naive dynamics model $\hat f: \mathbb{R}^n \to \mathbb{R}^n$ and Lyapunov function $V$. To generate provably globally stable dynamics $f$, we can simply project $\hat f$ such that:
+\begin{align}
+    \nabla V(x)^T \hat{f}(x) \leq -\alpha V(x)
+\end{align}
+i.e., we define the dynamics
+\begin{align}
+\label{eq:dynamics}
+    \begin{split}
+    f(x) & =  \mathsf{Proj}\left(\hat{f}(x), \{f: \nabla V(x)^T f \leq -\alpha V(x)\}\right ) \\
+    & = \begin{cases} \hat{f}(x) & \mbox{if } \nabla V(x)^T \hat{f}(x) \leq -\alpha V(x) \\
+    \hat{f}(x) - \nabla V(x)\frac{\nabla V(x)^T \hat{f}(x) + \alpha V (x)}{\|\nabla V(x)\|_2^2}    
+         & \mbox{otherwise} \end{cases} \\
+    & = \hat{f}(x) - \nabla V(x)\frac{\mathsf{ReLU}\bigl(\nabla V(x)^T \hat{f}(x) + \alpha V (x) \bigr)}{\|\nabla V(x)\|_2^2}    
+ \end{split}
+\end{align}
+where $\mathsf{Proj(x;\mathcal{C})}$ denotes the orthogonal projection of $x$ onto the set $\mathcal{C}$, and $\nabla V$ can be automatically computed using autodiff tools. This is illustrated in Figure \ref{fig:stable_nn_construction}.
+To get the desired stability we need to guarantee that $V$ has no local optima and is positive definite. We achieve this by representing $V$ as an input-convex neural network (ICNN) function \citep{amos2017input} with additional shifting and regularization. We guarantee that $V$ is continuously differentiable by using a smoothed ReLU activation function with this property.
+
+\begin{figure}
+  \input{stablefn/random_stable.tex}
+  \caption{(left) Nominal dynamics $\hat{f}$ for random network; (middle) Convex positive definite Lyapunov function generated by a random ICNN (with shifting and regularization); (right) Resulting stable dynamics $f$. }
+  \label{fig:nominal_dynamics}
+\end{figure}
+
+
+We showed that our method could learn stable value functions only when the parameterization was small. Otherwise, it is very sensitive to the exact training distribution and prone to model collapse.
+
+
+\section{Proposed Work}
+We propose an alternative approach to stabilizing off-policy training, inspired by Kolter's Non-Expansion Criterion and the original TD-DO algorithm \cite{kolter2011fixed}. 
+In this approach, Kolter proposes selecting a convex set of ``safe'' distributions and reweighting data so it appears to come from such a distribution. The resultant TD-DO algorithm is different from Emphatic-TD in that:
+\begin{enumerate}
+  \item the distribution after reweighting in TD-DO is provably non-expansive, but not necessarily the on-policy distribution (as enforced by Emphatic-RD), which allows for greater flexibility in training
+  \item is not vulnerable to the regularization pitfalls explained in Section~\ref{sec:rr}.
+  \item is not prone to the same high-variance updates as the followon trace model in Emphatic-TD.
+\end{enumerate}
+We introduce this criterion, followed by our proposed project extending this.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Kolter's Non-Expansion Criterion }
 
-In an approach distinct from those proposed so far, \cite{kolter2011fixed} proposes selecting a convex set of ``safe'' distributions and reweighting data so it appears to come from such a distribution. This algorithm, known as TD-DO, is different from Emphatic-TD in that the distribution after reweighting in TD-DO is not necessarily the on-policy distribution, which allows for greater flexibility in training.
-
-These safe distributions are those under which TD updates are guaranteed to be non-expansive. To do this, he writes down this inequality concerning the $D$-norm of the learned value function through one Bellman update, where $D=\text{diag}(\mu)$:
+The ``safe'' distributions are those under which TD updates are guaranteed to be non-expansive despite an off-policy update projection. To do this, he writes down this inequality concerning the $D$-norm of the learned value function through one Bellman update, where $D=\text{diag}(\mu)$:
 \begin{align}
     \|\Pi_D P\Phi \vec w\|_D & \leq \|\Phi \vec w\|
-\intertext{This is true if and only if the matrix $F_D$ is positive semi-definite}
+\end{align}
+This is true if and only if the matrix $F_D$ is positive semi-definite
+\begin{align}
     F_D \equiv & \begin{bmatrix}
         \Phi^\top D \Phi & \Phi^\top D P \Phi \\
         \Phi^\top P^\top D \Phi & \Phi^\top D \Phi
     \end{bmatrix} \succcurlyeq 0 \label{eqn:koltercondmat}
-\intertext{This can be written in terms of an expectation over the sampling distribution $\mu$. Let $\mu(s)$ be the PDF of state $s \in \mathcal S$, and the transition distribution $p(s,s') = \mu(s) p(s'|s)$. This condition is equivalent to:}
-    \E_{s\sim \mu, s'\sim p(s'|s)} & \left[\begin{bmatrix}
+\end{align}
+This can be written in terms of an expectation over the sampling distribution $\mu$. Let $\mu(s)$ be the PDF of state $s \in \mathcal S$, and the transition distribution $p(s,s') = \mu(s) p(s'|s)$. This condition is equivalent to:
+\begin{align}
+  \E_{s\sim \mu, s'\sim p(s'|s)} & \left[\begin{bmatrix}
         \phi(s)\phi(s)^\top & \phi(s)\phi(s')^\top \\
         \phi(s')\phi(s)^\top & \phi(s)\phi(s)^\top
     \end{bmatrix}\right] \succcurlyeq 0 \label{eqn:koldercondstate}
-\intertext{For convenience, we write down the per-state contribution to this expectation as:}
+\end{align}
+For convenience, we write down the per-state contribution to this expectation as:
+\begin{align}
 F(s) = \E_{s'\sim p(s'|s)} & \left[\begin{bmatrix}
     \phi(s)\phi(s)^\top & \phi(s)\phi(s')^\top \\
     \phi(s')\phi(s)^\top & \phi(s)\phi(s)^\top
 \end{bmatrix}\right]
-\intertext{This allows us to write Equation~\ref*{eqn:koldercondstate}:}
+\end{align}
+This allows us to write Equation~\ref*{eqn:koldercondstate}:
+\begin{align}
 \E_{s\sim \mu} & [F(s)] \succcurlyeq 0
-\intertext{In practice this condition does not always hold at $\mu$. We can apply this insight to data by reweighting incoming samples so they are consistent with a different distribution $q$ such that:}
+\end{align}
+In practice this condition does not always hold at $\mu$. We can apply this insight to data by reweighting incoming samples so they are consistent with a different distribution $q$ such that
+\begin{align}
 \E_{s~\sim q} & [F(s)] \succcurlyeq 0
-\intertext{For input data $(x_1, x_2, \ldots)$, this is the same as finding a set of weights $q_1, q_2, \ldots$ such that:}
+\end{align}
+For input data $(x_1, x_2, \ldots)$, this is the same as finding a set of weights $q_1, q_2, \ldots$ such that
+\begin{align}
 \sum_i q_i & \cdot F(x_i) \succcurlyeq 0
-\intertext{We also need to constrain our choice of distribution $q$ to ensure the quality of the solution. \citet{kolter2011fixed} achieve this by selecting $q$ that solves this optimization problem}
+\end{align}
+We also need to constrain our choice of distribution $q$ to ensure the quality of the solution. \citet{kolter2011fixed} achieve this by selecting $q$ that solves this optimization problem
+\begin{align}
     \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0
 \end{align}
 explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem.
 
-\section{Proposed Work}
+\subsection{Our Algorithm}
 
 Do this after we figure out if we're going to submit the TD-DO followup to NeurIPS 2022. If we submit it, I'll have to rewrite the entire section.\todo{Wait for NeurIPS 2022 deadline. }
 
