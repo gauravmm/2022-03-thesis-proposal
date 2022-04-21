@@ -403,9 +403,15 @@ After the successes of our stable dynamics model, we attempted to use it to lear
 \begin{align}
   \mathsf{ReLU}\bigl(\nabla V(x)^T \tilde{f}(x, \pi) + \alpha V (x) \bigr)
 \end{align}
-given traces from simulated dynamics. We find that we can learn stabilizing controllers for a one-link pendulum and the cartpole problem, but not a swingup controller for either or any type of controller for an Acrobot or more complex locomotion tasks. We could not overcome a particular type of training collapse where the learned Lyapunov function either collapses to a trivial function or the dynamics become very strongly non-linear\footnote{I have not seen any other method in the literature succeed in learning locomotion tasks with a large number of states using this mechanism. }.
+given traces from simulated dynamics. We intended to learn stable value functions by manually setting a goal state and choosing a transformation for a Lyapunov function, and training it with TD learning from trajectory samples.
 
-\todo{Should we talk about the ODE stopping-time formulation? }
+We find that we can learn stabilizing controllers for a one-link pendulum and the cartpole problem, but not a swingup controller for either or any type of controller for an Acrobot or more complex locomotion tasks. We could not overcome a particular type of training collapse where the learned Lyapunov function either collapses to a trivial function or the nominal dynamics function diverges to the point of uselessness\footnote{I have not seen any other method in the literature succeed in learning locomotion tasks with a large number of states using our stable-dynamics mechanism. }.
+
+Given the failure of this method to generalize to stable control, we inferred that learning a stable value function was unlikely to succeed, and so shelved this line of inquiry.
+
+\subsection{ODE stopping-time Policy and Value}
+
+Learn dynamics and policies from trajectories using a novel ODE stopping-time formulation. One eventual goal was to learn policies that mimic expert trajectories and then iteratively improve the policy to increase the aggregate reward encountered during each trajectory. To do this we...\todo{Should we talk about the ODE stopping-time work? }
 
 \section{Proposed Work}
 We propose an alternative approach to stabilizing off-policy training, inspired by Kolter's Non-Expansion Criterion and the original TD-DO algorithm \cite{kolter2011fixed}. 
