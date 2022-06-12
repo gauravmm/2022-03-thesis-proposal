@@ -22,6 +22,7 @@
 \usepackage{caption,subcaption}
 \usepackage{minibox}
 \usepackage{parskip,setspace}
+\usepackage{epstopdf}
 \usepackage[nottoc,numbib]{tocbibind} % Add bibliography to TOC
 \usepackage[mathlines]{lineno}
 
@@ -80,16 +81,16 @@
 
 \begin{titlepage}
     {
-        \hfill\includegraphics[width=1.25in,trim=0 0 .125in .25in]{cmu/cmu-wordmark-square-w-on-r.eps}
+        \hfill\includegraphics[width=1.25in,trim=0 0 .125in .25in]{cmu/cmu-wordmark-square-w-on-r}
     }
     \begin{center}{\SourceSerifPro
         \vfill
 
         {\Huge\OpenSans
             {
-                {Value Functions}\\[-.5em]
+                {Value Functions}\\[-1.em]
                 \rule{0.25\textwidth}{1pt}
-                \raisebox{-.1\baselineskip}{\textit{\Large in}}
+                \raisebox{-.1\baselineskip}{\textit{\Large and}}
                 \rule{0.25\textwidth}{1pt}\\[.5em]
                 {Temporal Difference Learning}
             }
@@ -451,13 +452,13 @@ F(s) = \E_{s'\sim p(s'|s)} & \left[\begin{bmatrix}
     \phi(s')\phi(s)^\top & \phi(s)\phi(s)^\top
 \end{bmatrix}\right]
 \end{align}
-This allows us to write Equation~\ref*{eqn:koldercondstate}:
+This allows us to write Equation~\ref{eqn:koldercondstate}:
 \begin{align}
 \E_{s\sim \mu} & [F(s)] \succcurlyeq 0
 \end{align}
 In practice this condition does not always hold at $\mu$. We can apply this insight to data by reweighting incoming samples so they are consistent with a different distribution $q$ such that
 \begin{align}
-\E_{s~\sim q} & [F(s)] \succcurlyeq 0
+\E_{s\sim q} & [F(s)] \succcurlyeq 0
 \end{align}
 For input data $(x_1, x_2, \ldots)$, this is the same as finding a set of weights $q_1, q_2, \ldots$ such that
 \begin{align}
@@ -465,13 +466,58 @@ For input data $(x_1, x_2, \ldots)$, this is the same as finding a set of weight
 \end{align}
 We also need to constrain our choice of distribution $q$ to ensure the quality of the solution. \citet{kolter2011fixed} achieve this by selecting $q$ that solves this optimization problem
 \begin{align}
-    \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0
+    \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0 \label{eqn:kolter2011objective}
 \end{align}
-explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem.
+explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem. The resultant algorithm, TD-DO, performs a first-order optimization method on a dual objective using quasi-Newton methods alongside every TD step.
 
 \subsection{Our Algorithm}
 
-Do this after we figure out if we're going to submit the TD-DO followup to NeurIPS 2022. If we submit it, I'll have to rewrite the entire section.\todo{Wait for NeurIPS 2022 deadline. }
+A deceptively simple theoretical insight opens up a new algorithmic possibility. Instead of the I-projection objective in Equation~\ref{eqn:kolter2011objective}, we optimize the dual M-projection instead:
+\begin{align}
+  \underset{q}{\text{minimize}}~\text{KL}(\mu||q) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0 \label{eqn:ouroptobj}
+\end{align}
+By writing the objective as an M-projection, we are able to solve it using gradient descent, which can be integrated into TD. By avoiding the first-order optimization in each update step, we greatly reduce the time-complexity of the resultant algorithm. By switching to an M-projection, we hope to improve the quality of the distribution $q$.
+
+\paragraph{(Aside) I- vs M-projections} The Kullback-Leibler divergence is an \emph{asymmetric} measure, and so it is usually the case that $\min_q~\text{KL}(q||\mu) \neq \min_q~\text{KL}(\mu||q)$. The former is an information (or I-)projection, which tends to under-estimate the support of $q$ (potentially excluding possible sampling distributions to reweight to). The latter is a moment (or M-)projection, which tends to over-estimate the support of $q$ and avoid zero solutions. In our solution, we are proposing using an M-projection instead of the I-projection used by \citet{kolter2011fixed}.
+
+The dual of (\ref{eqn:ouroptobj}) can simplified to 
+\begin{align}
+  \underset{Z \succcurlyeq 0}{\text{minimize}}~\E_\mu [\exp(\text{tr} Z^\top F(s))] \label{eqn:ouroptobjdual}
+\end{align}
+where $Z$ is a Lagrange multiplier. We assume (and later verify) that $Z$ is low-rank and follows the structure
+\begin{align}
+  Z & = \begin{bmatrix}
+    Z_0 & - Z_0 \\ -Z_0 & Z_0
+  \end{bmatrix}
+\intertext{which we approximate as a rank-one solution with parameters $y\in \mathbb{R}^{k}$ following the Burer-Monteiro approach}
+  Z & = \begin{bmatrix} y \\ -y \end{bmatrix}
+  \begin{bmatrix} y \\ -y \end{bmatrix}^\top
+\end{align}
+Substituting this into Equation~\ref{eqn:ouroptobjdual}, this objective simplifies to the unconstrained optimization problem
+\begin{align}
+  \underset{y}{\text{minimize}}~\E_\mu [\exp(y^\top A(s) y)] \quad\text{where~} A(s) = \E_{s\sim\mu,s'\sim p(s'|s)} [\phi(s)(\phi(s) - \phi(s'))^\top]
+\end{align}
+To solve this problem in linear time we adopt a two-timescales method, separately estimating $y$ and $(y^\top A(s) y)$. To minimize the memory overhead, we directly represent $y \in \mathbb R^{k}$ (which is the same size as the learned weights), but approximate $g(s) = (y^\top A(s) y)$ using a separate function approximator of configurable size. 
+
+
+\subsubsection{Technical Details}
+
+
+\subsubsection{Thesis Project}
+
+\begin{enumerate}
+  \item Evaluate these on simple MDPs using exact updates (full GD, not SGD), with an aim to establish:
+  \begin{enumerate}
+    \item basic function,
+    \item viability of the low-rank approximation (check if the rank-2 approximation has a rank-1 equivalent),
+    \item stability of update rules (conditions for our update rules to converge),
+    \item quasi-tabular $g(s)$ to minimize compute and memory overhead
+    \item convergence of update rules (in the context of drifting sampling distribution -- this is derigeur for new TD-like algorithms), 
+    \item hyperparameter selection and initialization,
+    \item amount of compute relative to TD,
+    \item etc.
+  \end{enumerate}
+\end{enumerate}
 
 \clearpage
 
