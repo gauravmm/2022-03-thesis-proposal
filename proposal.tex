@@ -429,7 +429,7 @@ We introduce this criterion, followed by our proposed project extending this.
 
 The ``safe'' distributions are those under which TD updates are guaranteed to be non-expansive despite an off-policy update projection. To do this, he writes down this inequality concerning the $D$-norm of the learned value function through one Bellman update, where $D=\text{diag}(\mu)$:
 \begin{align}
-    \|\Pi_D P\Phi \vec w\|_D & \leq \|\Phi \vec w\|
+    \|\Pi_D P\Phi \vec w\|_D & \leq \|\Phi \vec w\|_D
 \end{align}
 This is true if and only if the matrix $F_D$ is positive semi-definite
 \begin{align}
@@ -466,7 +466,7 @@ For input data $(x_1, x_2, \ldots)$, this is the same as finding a set of weight
 \end{align}
 We also need to constrain our choice of distribution $q$ to ensure the quality of the solution. \citet{kolter2011fixed} achieve this by selecting $q$ that solves this optimization problem
 \begin{align}
-    \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0 \label{eqn:kolter2011objective}
+    \underset{q}{\text{minimize}}~\text{KL}(\mu||q) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0 \label{eqn:kolter2011objective}
 \end{align}
 explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem. The resultant algorithm, TD-DO, performs a first-order optimization method on a dual objective using quasi-Newton methods alongside every TD step.
 
@@ -474,11 +474,12 @@ explicitly optimizing over the distributons using a primal-dual formulation that
 
 A deceptively simple theoretical insight opens up a new algorithmic possibility. Instead of the I-projection objective in Equation~\ref{eqn:kolter2011objective}, we optimize the dual M-projection instead:
 \begin{align}
-  \underset{q}{\text{minimize}}~\text{KL}(\mu||q) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0 \label{eqn:ouroptobj}
+  \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0 \label{eqn:ouroptobj}
 \end{align}
-By writing the objective as an M-projection, we are able to solve it using gradient descent, which can be integrated into TD. By avoiding the first-order optimization in each update step, we greatly reduce the time-complexity of the resultant algorithm. By switching to an M-projection, we hope to improve the quality of the distribution $q$.
+By changing the objective, we are able to integrate its solution into the basic TD algorithm and solve these concurrently. This avoids the first-order optimization in each update step, greatly reducing the time-complexity of the resultant algorithm. By switching to an M-projection, we may even improve the quality of the distribution $q$.
 
-\paragraph{(Aside) I- vs M-projections} The Kullback-Leibler divergence is an \emph{asymmetric} measure, and so it is usually the case that $\min_q~\text{KL}(q||\mu) \neq \min_q~\text{KL}(\mu||q)$. The former is an information (or I-)projection, which tends to under-estimate the support of $q$ (potentially excluding possible sampling distributions to reweight to). The latter is a moment (or M-)projection, which tends to over-estimate the support of $q$ and avoid zero solutions. In our solution, we are proposing using an M-projection instead of the I-projection used by \citet{kolter2011fixed}.
+\todo{Check I- vs M-projection}
+\paragraph{(Aside) I- vs M-projections} The Kullback-Leibler divergence is an \emph{asymmetric} measure, and so it is usually the case that $\min_q~\text{KL}(q||\mu) \neq \min_q~\text{KL}(\mu||q)$. The former is an information (or I-)projection, which tends to under-estimate the support of $q$ (potentially excluding possible sampling distributions to reweight to). The latter is a moment (or M-)projection, which tends to over-estimate the support of $q$ and avoid zero solutions. In our solution, we are proposing using an M-projection instead of the I-projection used by \citet{kolter2011fixed}. \ref{sec:improj}
 
 The dual of (\ref{eqn:ouroptobj}) can simplified to 
 \begin{align}
@@ -499,8 +500,6 @@ Substituting this into Equation~\ref{eqn:ouroptobjdual}, this objective simplifi
 \end{align}
 To solve this problem in linear time we adopt a two-timescales method, separately estimating $y$ and $(y^\top A(s) y)$. To minimize the memory overhead, we directly represent $y \in \mathbb R^{k}$ (which is the same size as the learned weights), but approximate $g(s) = (y^\top A(s) y)$ using a separate function approximator of configurable size. 
 
-
-\subsubsection{Technical Details}
 
 
 \subsubsection{Thesis Project}
@@ -527,5 +526,58 @@ To solve this problem in linear time we adopt a two-timescales method, separatel
 
 \appendix
 %\section{Appendix }
+
+\section{Technical Details}
+
+This is a complete derivation of the theory behind this project, from Kolter's non-expansion condition \cite{kolter2011fixed} to the exact update rules.
+
+\subsection{Kolter's non-expansion condition}
+
+Error bounds from on-policy TD follow the property that the $\diag(\pi)-$norm of any vector $x \in \mathbb R^n$ is non-expansive through the transition matrix. That is: $\|Px\|_{\diag(\pi)} \leq \|x\|_{\diag(\pi)}$.  \citep{kolter2011fixed}, observes that we can relax this to potentially off-policy distributions $D$. He writes down \emph{Kolter's non-expansion condition}:
+\begin{align}
+  \|\Pi_D P\Phi \vec w\|_D & \leq \|\Phi \vec w\|_D \qquad (\forall w \in \mathbb R^n)
+\intertext{This holds if and only if the matrix $F_D$ is positive semi-definite}
+F_D \equiv & \begin{bmatrix}
+  \Phi^\top D \Phi & \Phi^\top D P \Phi \\
+  \Phi^\top P^\top D \Phi & \Phi^\top D \Phi
+\end{bmatrix} \succcurlyeq 0
+\end{align}
+This constraint describes a convex subset of $D$. As a $2k\times 2k$ matrix (where $k$ is the number of features), $F$ is prohibitively large to enumerate for any real RL problem, and so our algorithm is designed to make use of this without ever constructing it directly.
+
+Further, we notice that the construction of $F_D$ depends on $P$, the transition matrix of the underlying Markov process. 
+
+\subsection{Underlying Optimization Problem}
+
+In the previous section we have characterized a convex subset of off-policy distributions under which TD learning is guaranteed not to diverge. If we can discover any such distribution for a particular TD problem, we can reweigh our TD updates (from any distribution) so they appear consistent with this reweighting distribution. This is related to the main insight in Emphatic-TD \cite{sutton2016emphatic}, with the key innovation that we can take any non-expansive distribution, \emph{not just the on-policy distribution}.
+
+We can now write down the primary optimization problem that we wish to solve: 
+\begin{align}
+  \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0
+\end{align}
+We are searching for $q$, the closest distribution to the sampling distribution $\mu$ such that $F$ is PSD under $q$. Note that we could in principle minimize any notion of ``closest'' to find some satisfying distribution -- for example \citet{kolter2011fixed} explores the effects of minimizing $\text{KL}(\mu||q)$.
+
+We construct the dual of this problem:
+\begin{align}
+  \underset{Z\succcurlyeq 0}{\text{maximize}} \underset{q}{\text{minimize}}~\text{KL}(q||\mu) - \tr Z^\top \E_{s\sim q}[F(s)]
+\end{align}
+Using the Lagrange multiplier $Z\in\mathbb^{2k\times 2k}, we solve the inner optimization problem:
+\begin{align}
+  \underset{q}{\text{minimize}} - H(q) - \E_{s\sim q}[\log \mu(s) + \tr Z^\top F(s)]
+\end{align}
+\todo{Write down Lagrangian, find optima.}
+\begin{align}
+  q(s) & = \exp(\log \mu(s) + \tr Z^\top F(s))
+\intertext{Adding the constraint that $q(s)$ must sum to 1 over all s, we obtain the analytical solution $q^*(s)$: }
+  q^*(s) & = \mu(s)\exp( \tr Z^\top F(s))
+\end{align}
+
+Plugging this back into our dual formulation, we obtain the optimization problem:
+\begin{align}
+  \underset{Z\succcurlyeq 0}{\text{maximize}} & -\log \E_{s\sim\mu} [ \exp(\tr Z^\top F(s)) ]
+\intertext{Which we can simplify to}
+\underset{Z\succcurlyeq 0}{\text{minimize}} & \E_{s\sim\mu} [ \exp(\tr Z^\top F(s)) ]
+\end{align}
+
+$F(s)$ is 
 
 \end{document}
