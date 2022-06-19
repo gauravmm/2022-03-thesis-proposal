@@ -542,15 +542,28 @@ F_D \equiv & \begin{bmatrix}
   \Phi^\top P^\top D \Phi & \Phi^\top D \Phi
 \end{bmatrix} \succcurlyeq 0
 \end{align}
-This constraint describes a convex subset of $D$. As a $2k\times 2k$ matrix (where $k$ is the number of features), $F$ is prohibitively large to enumerate for any real RL problem, and so our algorithm is designed to make use of this without ever constructing it directly.
+This constraint describes a convex subset of $D$. As a $2k\times 2k$ matrix (where $k$ is the number of features), $F$ is prohibitively large to enumerate for any real RL problem, and so our algorithm is designed to make use of this without ever constructing it directly. Further, we notice that the construction of $F_D$ depends on $P$, the transition matrix of the underlying Markov process, which complicates how we construct it from samples.
 
-Further, we notice that the construction of $F_D$ depends on $P$, the transition matrix of the underlying Markov process. 
+Later in the algorithm, we will need to compute the contribution of a single sample to the expectation of $F$. To do this, we define the function $F(s, s')$ as the contribution of a single state-transition pair towards the construction of $F_D$. That is:
+\begin{align}
+  F(s, s') & = \begin{bmatrix}
+    \phi(s)\phi(s)^\top & \phi(s)\phi(s')^\top
+\\  \phi(s')\phi(s)^\top & \phi(s)\phi(s)^\top
+  \end{bmatrix}
+\intertext{and its expectation:}
+F_{\diag(\mu)} & = \E_{s\sim \mu, s'\sim p(\circ|s)} F(s, s')
+\intertext{For convenience, we define the shorthand $F(s)$, noting that it depends on the transition distribution $p(\circ|s)$.}
+  F(s) & = \E_{s'\sim p(\circ|s)} F(s, s')
+\end{align}
 
-\subsection{Underlying Optimization Problem}
+Directly constructing $F(s)$ or $F(s, s')$ is impossible on all but the simplest examples -- it would take $\mathcal O(k^2n)$ memory to hold all the necessary data. Instead we exploit the structure inherent in the problem to make use of $F(s)$ without creating it .
+
+
+\subsection{Optimizing the distribution}
 
 In the previous section we have characterized a convex subset of off-policy distributions under which TD learning is guaranteed not to diverge. If we can discover any such distribution for a particular TD problem, we can reweigh our TD updates (from any distribution) so they appear consistent with this reweighting distribution. This is related to the main insight in Emphatic-TD \cite{sutton2016emphatic}, with the key innovation that we can take any non-expansive distribution, \emph{not just the on-policy distribution}.
 
-We can now write down the primary optimization problem that we wish to solve: 
+We can now write down the optimization problem that we wish to solve: 
 \begin{align}
   \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0
 \end{align}
@@ -578,6 +591,49 @@ Plugging this back into our dual formulation, we obtain the optimization problem
 \underset{Z\succcurlyeq 0}{\text{minimize}} & \E_{s\sim\mu} [ \exp(\tr Z^\top F(s)) ]
 \end{align}
 
-$F(s)$ is 
+As discussed earlier, $F(s)$ cannot be directly constructed; instead, we pick some $Z$ with a specific structure and optimize the problem.
+
+
+\subsection{Simplifying the optimization problem}
+
+Our next goal is to transform this constrained optimization problem into an unconstrained problem over a low-rank version of $Z$, suitable for learning via SGD.
+
+We assume (and later check!) that the solution for $Z$ is low-rank. Intuitively, this is because $\E_{s\sim\mu}[F(s)]$ is PSD when $\mu$ is close to $\pi$, and for most MDPs, sampling off-policy leads to only a small number of negative eigenvalues that need to be corrected by $Z$. \citet{kolter2011fixed} provide a technical explanation: by the KKT conditions, $Z$ will have rank complementary to $\E_{s\sim\mu}[F(s)]$, and the latter is expected to be full rank. It is worth noting that this ``almost-PSD'' assumption is common in the field, is supported by the work in \cite{manek2022pitfalls}. We later discuss how we verify that this assumption holds.
+
+We make the strong assumption that $Z$ is rank one, and apply the Burer-Montiero \todo{cite} approach to convert the constrained optimization problem over $Z$ into an unconstrained optimization over $y\in \mathbb R^{k}$:
+\begin{align}
+  Z^\star & = \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ] \left [ \begin{bmatrix} y \\ -y\end{bmatrix} \right ]^T
+\end{align}
+Substituting this into the dual formulation, we get:
+\begin{align}
+\underset{y}{\text{minimize}} & \;\; \mathbf{E}_{s\sim\mu} \left [ \exp\left (\tr  \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ] \left [ \begin{bmatrix} y \\ -y\end{bmatrix} \right ]^T F(s) \right )  \right ]
+\end{align}
+
+We can leverage the structure of $F(s)$ to simplify the trace term:
+\begin{align}
+\tr  \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ] \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ]^T F(s)
+    & = \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ]^T F(s) \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ] \\
+\\  & =  \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ]^T  \mathbf{E}_{s' \sim p(s'|s)}  \left[ \begin{array}{cc} \phi(s)\phi(s)^T & \phi(s)\phi(s')^T \\ \phi(s')\phi(s)^T & \phi(s)\phi(s)^T \end{array} \right]
+ \left [ \begin{bmatrix} y \\ -y \end{bmatrix} \right ] \\
+\\  & =  2 y^T \mathbf{E}_{s' \sim p(s'|s)} \left [\phi(s)(\phi(s)- \phi(s'))^T \right ] y
+\\  & =  2 y^T A(s) y
+\end{align}
+where $A(s) = \mathbf{E}_{s' \sim p(s'|s)} \left [\phi(s)(\phi(s)- \phi(s'))^T \right ]$
+
+This allows us to rewrite the optimization problem as:
+\begin{align}
+  \underset{y}{\text{minimize}} & \;\; \mathbf{E}_{s\sim\mu} \left [ \exp\left( y^\top A(s) y \right)  \right ]
+\end{align}
+
+This has some great properties: in particular, we can optimize $y$ in an unconstrained manner (i.e. with SGD), and we need only use quantities that we already compute ($\phi(s), \phi(s')$). All this leads to the final step, the derivtion of the update rules:
+
+
+\subsection{Update rules}
+
+We can't directly optimize $y$ because that would require us to create $A(s)$. Instead, we use a two-timescales approach by estimating two (dependent) quantities separately and improving them at potentially different rates. We choose to optimize $y \in \mathbb R^k$ which is the same size as $w$, and the trace estimate $g(s) = y^\top A(s) y \in \mathbb R^n$. Instead of learning a tabular $g(s)$, we can approximate it as a linear function. This decision means the size of the per-update weights are still $\mathcal O(k)$ (limited by $w$ and $y$).
+
+We find the derivative of the objective with respect to $g(s)$ and $y$ and use that to construct update rules for our algorithm.
+
+
 
 \end{document}
