@@ -500,9 +500,18 @@ Substituting this into Equation~\ref{eqn:ouroptobjdual}, this objective simplifi
 \end{align}
 To solve this problem in linear time we adopt a two-timescales method, separately estimating $y$ and $(y^\top A(s) y)$. To minimize the memory overhead, we directly represent $y \in \mathbb R^{k}$ (which is the same size as the learned weights), but approximate $g(s) = (y^\top A(s) y)$ using a separate function approximator of configurable size. 
 
+\subsubsection{Validating our assumptions}
+
+We have made several assumptions in the construction of this algortihm which we must validate. Perhaps most importantly, we assume that $Z$ is low-rank.
+
+\paragraph{optimal $Z$ is low-rank vs. some low-rank $Z$ exists} We assume that the optimal $Z$ is low-rank
+
+Distinguish between these two claims. We make the former claim which is strictly stronger than the latter. 
 
 
-\subsubsection{Thesis Project}
+
+
+\subsection{Thesis Project}
 
 \begin{enumerate}
   \item Evaluate these on simple MDPs using exact updates (full GD, not SGD), with an aim to establish:
@@ -515,6 +524,7 @@ To solve this problem in linear time we adopt a two-timescales method, separatel
     \item hyperparameter selection and initialization,
     \item amount of compute relative to TD,
     \item etc.
+    \item Is the convex subset a sufficiently expressive characterization of the algorithm.
   \end{enumerate}
 \end{enumerate}
 
