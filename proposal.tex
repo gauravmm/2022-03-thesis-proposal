@@ -61,6 +61,8 @@
 \date{\today}
 
 \newcommand{\E}{\textbf{E}}
+\newcommand{\diag}{\text{diag}}
+\newcommand{\tr}{\text{tr}}
 \newcommand{\subsectionsubtitle}[1]{\vspace{-0.5em}\textit{#1}\vspace{0.5em}}
 
 % Color Scheme
@@ -88,7 +90,7 @@
 
         {\Huge\OpenSans
             {
-                {Value Functions}\\[-1.em]
+                {Stable Models}\\[-1.em]
                 \rule{0.25\textwidth}{1pt}
                 \raisebox{-.1\baselineskip}{\textit{\Large and}}
                 \rule{0.25\textwidth}{1pt}\\[.5em]
@@ -122,7 +124,7 @@
 \begin{center}
     \begin{minipage}[c]{.7\textwidth}
         \begin{abstract}
-            Temporal Difference (TD) learning is used to learn value functions of Markov decision processes (MDPs) using samples following some policy. In Reinforcement Learning (RL), it is necessary to use TD with both function approximation (i.e. neural networks), and off-policy learning. These three conditions are collectively known as the deadly triad because they collectively cause learning to be unstable or diverge. In the literature there are two main strategies to combat this: regularization and reweighting. Our past work has shown the limitations of regularization, and learned reweighting strategies are well-known to be unstable in practice. We have also examined ancilliary strategies that are not effective. We propose a reweighting method, based on results from convex optimization, with better convergence properties and training performance.
+            Temporal Difference (TD) learning is used to learn value functions of Markov decision processes (MDPs) using samples following some policy. In Reinforcement Learning (RL), it is necessary to use TD with both function approximation (i.e. neural networks), and off-policy learning. These three conditions are collectively known as the deadly triad because they cause learning to be unstable or diverge. In the literature there are two main strategies to combat this: regularization and reweighting. Our past work has shown the limitations of regularization, and learned reweighting strategies are known to be unstable in practice or have large computational overhead. We have also examined ancilliary strategies that are not effective. We propose POP-TD, a reweighting method based on results from convex optimization that only imposes a constant overhead per iteration.
         \end{abstract}
     \end{minipage}
 \end{center}
@@ -291,28 +293,6 @@ Intuitively, there is a fundamental bootstrapping issue in this situation: we us
 \end{figure}
 
 
-\subsection{Model-Value Expansion}
-\subsectionsubtitle{Contains unpublished work from \cite{manek2021mve}: \citetitle{manek2021mve}~(\citeauthor{manek2021mve},~\citeyear{manek2021mve})}
-
-We can also factor the value function into parts that are learned without bootstrapping. In unpublished work \cite{manek2021mve} we investigated the use of Model-Value Expansion (MVE) \cite{Feinberg2018ModelBasedVE}.
-The key idea behind MVE is that it is possible to ``unroll'' the computation of a value estimate from a particular state by following a learned dynamics and reward function for a few steps before using a learned value function for the residual value. Since the dynamics and reward function are not bootstrapped, they are not susceptible to divergence from off-policy training. Further, by varying the number of steps and discount factor, it is possible to change the degree of bootstrapping. Informally, this is the modern equivalent to interpolating between Monte-Carlo methods and Bootstrapping, an approach that was explored in the classic RL literature.
-
-Since modern RL algorithms like MBPO \cite{janner2019mbpo} already ensemble independently-initialized dynamics models for synthetic data generation, we can leverage these already-learned models to improve our value estimates. Consequently, such ideas have been explored in the literature \cite{lee2021sunrise,Feinberg2018ModelBasedVE,buckman2018steve}, and have been shown to be effective in standard benchmarks, especially those with continuous state- and action-spaces. The trade-off is that these methods generally require greatly increased computation.
-
-Our prior work \cite{manek2021mve} shows that a small change in ensembling technique greatly improves training performance. We illustrate our technique in Figure~\ref{fig:policyvalue}, where the $i^\text{th}$ dynamics model $f_{(i)}$ and reward model $r_{(i)}$ are independently used to unroll the value estimate for $H$ steps, and the residual value is estimated using a separately-trained $Q$-function. In each critic training step, we fuse these $i$ separate value estimates into a single value by using the mean (or minimum), and use that in the Bellman backup update of the Q-function.
-\begin{figure}
-    \centering
-    \input{mbpomve.tex}
-
-    \caption{Policy value calculation when $H=2$. Each ensemble member separately unrolls the policy for $H$ steps for MVE, and one final step for the terminal value. The terminal value is computed using the standard double-Q-function used by MBPO \cite{janner2019mbpo}. The action at each step is shared between all unrollings. The mean (or minimum) of the individual estimates is used as the final value estimate. }
-    \label{fig:policyvalue}
-\end{figure}
-
-Through statistical analysis of the learned Q-functions, we show that MVE produces value estimates that are similar to non-MVE estimates from several training steps \emph{in the future}. We conjecture that this mitigates the training delay imposed by the use of target networks. Target networks \cite[]{mnih2015humanlevel} are an absolutely essential part of modern RL algorithms, and they promote training stability by delaying the incorporation of updates into value estimates, preventing an update at some state from influencing the next update to the successor state. Dynamics and reward functions trained in a supervised manner can reduce the delay imposed by the target function while maintaining the important update-independence property.
-
-However, we are not able to show, either in theory or practice, that the use of MVE lessens the propensity of TD to diverge. The mutual dependence between the dynamics models and the learned policy makes this resistant to theoretical analysis, and the natural variance of RL methods makes empirical experimentation cost- and time-prohibitive. As a result we are not pursuing further investigation in this work.
-
-
 \subsection{Guaranteed-Stable Value Functions}
 \subsectionsubtitle{Contains work from \cite{manek2019stable}: \citetitle{manek2019stable}~(\citeauthor{manek2019stable},~\citeyear{manek2019stable})}
 
@@ -414,20 +394,27 @@ Given the failure of this method to generalize to stable control, we inferred th
 
 Learn dynamics and policies from trajectories using a novel ODE stopping-time formulation. One eventual goal was to learn policies that mimic expert trajectories and then iteratively improve the policy to increase the aggregate reward encountered during each trajectory. To do this we...\todo{Should we talk about the ODE stopping-time work? }
 
-\section{Proposed Work}
+\section{Proposal: Projected Off-Policy TD (POP-TD) }
+
 We propose an alternative approach to stabilizing off-policy training, inspired by Kolter's Non-Expansion Criterion and the original TD-DO algorithm \cite{kolter2011fixed}. 
-In this approach, Kolter proposes selecting a convex set of ``safe'' distributions and reweighting data so it appears to come from such a distribution. The resultant TD-DO algorithm is different from Emphatic-TD in that:
+In this approach, Kolter proposes selecting a convex set of ``safe'' distributions and reweighting data so it appears to come from such a distribution. The resultant algorithm is called Projected Off-Policy TD (POP-TD).
+
+Even though POP-TD and Emphatic-TD both resample distributions, there are three key differences between them:
 \begin{enumerate}
-  \item the distribution after reweighting in TD-DO is provably non-expansive, but not necessarily the on-policy distribution (as enforced by Emphatic-RD), which allows for greater flexibility in training
-  \item is not vulnerable to the regularization pitfalls explained in Section~\ref{sec:rr}.
-  \item is not prone to the same high-variance updates as the followon trace model in Emphatic-TD.
+  \item the distribution after reweighting in POP-TD is provably non-expansive, but not necessarily the on-policy distribution (as enforced by Emphatic-TD). This allows POP-TD much greater flexibility in training
+  \item POP-TD is not vulnerable to the regularization pitfalls explained in Section~\ref{sec:rr}.
+  \item POP-TD is not prone to the same high-variance updates as the followon trace model in Emphatic-TD.
 \end{enumerate}
-We introduce this criterion, followed by our proposed project extending this.
+We introduce Kolter's Non-Expansion Criterion, and then explain how our proposed project extends this.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Kolter's Non-Expansion Criterion }
+\subsection{Background }
 
-The ``safe'' distributions are those under which TD updates are guaranteed to be non-expansive despite an off-policy update projection. To do this, he writes down this inequality concerning the $D$-norm of the learned value function through one Bellman update, where $D=\text{diag}(\mu)$:
+There is some work in the literature on which our methods rely. We cover the appropriate background here:
+
+\subsubsection{Kolter's Non-Expansion Criterion }
+
+Kolter's Non-Expansion Criterion was introduced by Kolter in \citeyear{kolter2011fixed}. The core idea is to estimate a convex set of ``safe'' distributions, under which TD updates are guaranteed to be non-expansive despite an off-policy update projection. To do this, he writes down this inequality concerning the $D$-norm of the learned value function the Bellman update, where $D=\text{diag}(\mu)$:
 \begin{align}
     \|\Pi_D P\Phi \vec w\|_D & \leq \|\Phi \vec w\|_D
 \end{align}
@@ -438,7 +425,7 @@ This is true if and only if the matrix $F_D$ is positive semi-definite
         \Phi^\top P^\top D \Phi & \Phi^\top D \Phi
     \end{bmatrix} \succcurlyeq 0 \label{eqn:koltercondmat}
 \end{align}
-This can be written in terms of an expectation over the sampling distribution $\mu$. Let $\mu(s)$ be the PDF of state $s \in \mathcal S$, and the transition distribution $p(s,s') = \mu(s) p(s'|s)$. This condition is equivalent to:
+This can be written in terms of an expectation over the sampling distribution $\mu$. Let $\mu : \mathcal S \to \mathbb R^+$ be the PDF of state $s \in \mathcal S$, and the transition distribution $p(s,s') = \mu(s) p(s'|s)$. (We also assume that $\mu(s) > 0 \quad (\forall s)$ -- this is called the \emph{full-coverage} assumption.) This condition is equivalent to:
 \begin{align}
   \E_{s\sim \mu, s'\sim p(s'|s)} & \left[\begin{bmatrix}
         \phi(s)\phi(s)^\top & \phi(s)\phi(s')^\top \\
@@ -470,16 +457,21 @@ We also need to constrain our choice of distribution $q$ to ensure the quality o
 \end{align}
 explicitly optimizing over the distributons using a primal-dual formulation that exploits the structure of the problem. The resultant algorithm, TD-DO, performs a first-order optimization method on a dual objective using quasi-Newton methods alongside every TD step.
 
-\subsection{Our Algorithm}
 
-A deceptively simple theoretical insight opens up a new algorithmic possibility. Instead of the I-projection objective in Equation~\ref{eqn:kolter2011objective}, we optimize the dual M-projection instead:
+\subsubsection{I- and M-projections} \label{sec:improj}
+The Kullback-Leibler divergence is an \emph{asymmetric} measure, and so it is usually the case that $\min_q~\text{KL}(q||\mu) \neq \min_q~\text{KL}(\mu||q)$. The former (``from $\mu$ to $q$'') is an information (or I-)projection, which tends to under-estimate the support of $q$ potentially excluding possible sampling distributions to reweight to. The latter (``from $q$ to $\mu$'') is a moment (or M-)projection, which tends to over-estimate the support of $q$ and avoid zero solutions. In our solution, we are proposing using an I-projection instead of the M-projection used by \citet{kolter2011fixed}. 
+
+\subsubsection{Offline/Batch RL}
+
+The practice of batch RL...
+
+
+\subsection{Our Algorithm}
+A deceptively simple theoretical insight opens up a new algorithmic possibility. Instead of the M-projection objective in Equation~\ref{eqn:kolter2011objective}, we optimize the dual I-projection instead:
 \begin{align}
   \underset{q}{\text{minimize}}~\text{KL}(q||\mu) & \qquad \text{s.t. } ~ E_{s\sim q}[F(s)] \succcurlyeq 0 \label{eqn:ouroptobj}
 \end{align}
-By changing the objective, we are able to integrate its solution into the basic TD algorithm and solve these concurrently. This avoids the first-order optimization in each update step, greatly reducing the time-complexity of the resultant algorithm. By switching to an M-projection, we may even improve the quality of the distribution $q$.
-
-\todo{Check I- vs M-projection}
-\paragraph{(Aside) I- vs M-projections} The Kullback-Leibler divergence is an \emph{asymmetric} measure, and so it is usually the case that $\min_q~\text{KL}(q||\mu) \neq \min_q~\text{KL}(\mu||q)$. The former is an information (or I-)projection, which tends to under-estimate the support of $q$ (potentially excluding possible sampling distributions to reweight to). The latter is a moment (or M-)projection, which tends to over-estimate the support of $q$ and avoid zero solutions. In our solution, we are proposing using an M-projection instead of the I-projection used by \citet{kolter2011fixed}. \ref{sec:improj}
+By changing the objective, we are able to integrate its solution into the basic TD algorithm and solve these concurrently. This avoids the first-order optimization in each update step, greatly reducing the time-complexity of the resultant algorithm. By switching to an I-projection, we may even improve the quality of the closest distribution $q$.
 
 The dual of (\ref{eqn:ouroptobj}) can simplified to 
 \begin{align}
@@ -496,37 +488,97 @@ where $Z$ is a Lagrange multiplier. We assume (and later verify) that $Z$ is low
 \end{align}
 Substituting this into Equation~\ref{eqn:ouroptobjdual}, this objective simplifies to the unconstrained optimization problem
 \begin{align}
-  \underset{y}{\text{minimize}}~\E_\mu [\exp(y^\top A(s) y)] \quad\text{where~} A(s) = \E_{s\sim\mu,s'\sim p(s'|s)} [\phi(s)(\phi(s) - \phi(s'))^\top]
+  \underset{y}{\text{minimize}}~\E_\mu [\exp(y^\top A(s) y)] \quad\text{where~} A(s) = \E_{s\sim\mu,s'\sim p(s'|s)} [\phi(s)(\phi(s) - \phi(s'))^\top] \label{eqn:outoptobjunconstr}
 \end{align}
-To solve this problem in linear time we adopt a two-timescales method, separately estimating $y$ and $(y^\top A(s) y)$. To minimize the memory overhead, we directly represent $y \in \mathbb R^{k}$ (which is the same size as the learned weights), but approximate $g(s) = (y^\top A(s) y)$ using a separate function approximator of configurable size. 
+To solve this problem in linear time we adopt a two-timescales method, separately estimating $y$ and $(y^\top A(s) y)$. To minimize the memory overhead, we directly represent $y \in \mathbb R^{k}$ (which is the same size as the learned weights), but approximate $g_\theta(s) = (y^\top A(s) y)$ using a separate function approximator with parameter $\theta$.
 
-\subsubsection{Validating our assumptions}
+Differentiating the objective in Equation~\ref{eqn:outoptobjunconstr} with respect to $y$, we obtain:
+\begin{align}
+  \nabla_y \mathbf{E}_\mu \left [ \exp (y^T A(s) y) \right ] & = 
+  \E_{s \sim \mu, s' \sim p(\circ|s)} \left [ \exp(2 g_\theta(s)) \phi(s)(\phi(s) - \phi(s'))^T y \right ]
+\intertext{From this, at each step of the underlying TD algorithm, we drive each parameter towards the objective values:}
+  g_\theta(s) & \to (\phi(s)^\top) y \cdot (\phi(s)^\top - \phi(s')^\top) y \\
+  y & \to \exp{g_\theta(s)} (\phi(s)^\top - \phi(s')^\top) y \cdot \phi(s)
+\intertext{This may require tinkering with the update rates (or using a target network construction) or other implementation tricks to ensure training stability. Alongside these two update rules, we augment the TD update to reweigh each sample:}
+  w & = w - \alpha \exp(2 g_\theta(s)) (\phi(s)^\top w - r - \phi(s')^\top w) \cdot \phi(s) 
+\end{align}
 
-We have made several assumptions in the construction of this algortihm which we must validate. Perhaps most importantly, we assume that $Z$ is low-rank.
+\subsection{Preliminary Results }
 
-\paragraph{optimal $Z$ is low-rank vs. some low-rank $Z$ exists} We assume that the optimal $Z$ is low-rank
-
-Distinguish between these two claims. We make the former claim which is strictly stronger than the latter. 
+We have a preliminary implementation of this algorithm using exact updates (instead of stochastic updates) to verify its basic function.
 
 
+\subsection{Remaining Work }
 
+The proposed project is to complete the design of POP-TD, evaluate it across a range of problems, and (if possible) prove its correctness, convergence, and performance.
 
-\subsection{Thesis Project}
+\subsubsection{Full Implementation and Evaluation }
+
+The natural application for this is in the field of offline RL.
+\todo{Why?}
 
 \begin{enumerate}
-  \item Evaluate these on simple MDPs using exact updates (full GD, not SGD), with an aim to establish:
+  \item Implement with stochastic updates
+  \item Evaluate on a sequence of tasks:
   \begin{enumerate}
-    \item basic function,
-    \item viability of the low-rank approximation (check if the rank-2 approximation has a rank-1 equivalent),
-    \item stability of update rules (conditions for our update rules to converge),
-    \item quasi-tabular $g(s)$ to minimize compute and memory overhead
-    \item convergence of update rules (in the context of drifting sampling distribution -- this is derigeur for new TD-like algorithms), 
-    \item hyperparameter selection and initialization,
-    \item amount of compute relative to TD,
-    \item etc.
-    \item Is the convex subset a sufficiently expressive characterization of the algorithm.
+    \item Toy examples (Online RL)
+    \begin{enumerate}
+      \item Three-state
+      \item Diffusion chain/Random MDPs
+    \end{enumerate}
+    \item Locomotion examples (Offline RL)
+    \begin{enumerate}
+      \item Cartpole
+      \item Lunar Lander
+    \end{enumerate}
+    \item Atari-like examples (Offline RL)
+    \begin{enumerate}
+      \item Maze2D
+      \item ???
+    \end{enumerate}
   \end{enumerate}
 \end{enumerate}
+
+
+\subsubsection{Our Assumption that the Lagrange Multiplier is Low-Rank }
+
+In our algorithm, we make a three-step structural assumption on $Z$. We first assume that $Z$ has this special block structure:
+\begin{align}
+  Z & = \begin{bmatrix}
+    Z_0 & - Z_0 \\ -Z_0 & Z_0
+  \end{bmatrix}
+\intertext{and then we further assume that the solution follows the Burer-Monteiro approach:}
+  Z & = \begin{bmatrix} Y \\ -Y \end{bmatrix}
+  \begin{bmatrix} Y \\ -Y \end{bmatrix}^\top
+\intertext{and then we finally assume that the solution has rank one:}
+  Z & = \begin{bmatrix} y \\ -y \end{bmatrix}
+  \begin{bmatrix} y \\ -y \end{bmatrix}^\top
+\end{align}
+
+We observe that this holds in all our toy examples: three-state, diffusion-chain, and random MDPs. To verify this, we solve an SDP representing Equation~\ref{eqn:ouroptobjdual} and obtain an optimal $Z$ without any rank constraint. We verify that the $Z$ we obtain follows Burer-Monteiro, and we then verify that the rank-one approximation of the component $Z_0$ can recover the original $Z$ (permitting a small amount of floating-point error). As a secondary check, we verify that the $Z$ reconstructed from the rank-one approximation represents a valid solution that, when used to remap TD updates, renders them non-expansive.
+
+\paragraph{Note: }
+We are not investigating the claim that some rank-one solution minimizes Equation~\ref{eqn:ouroptobjdual}. We are instead investigating the much stronger assumption that the solution (of any possible rank) that minimizes Equation~\ref{eqn:ouroptobjdual} always has rank one.
+
+There is no clear reason why this should be true, but we have two possible avenues of investigation: first, we have a set of counterexamples invented for \emph{Pitfalls} \cite{manek2022pitfalls} that are known to be pathological by having negative or zero eigenvalues in the corresponding $F$-matrix. If the rank of the solution is related to the number of negative eigenvalues of $\E_{s\sim\mu} [F(s)]$, then one of those may provide a counterexample and also shed light on the reason behind the structure of $Z$. Second, we know from the KKT conditions of the related optimization problem in \cite{kolter2011fixed} that the rank of $Z$ and $F$ are complementary -- if we can prove the property also holds here, it may be sufficient to find the conditions under which $F$ is full rank. In any case, this is an easily testable hypothesis.
+
+Our goal is to understand \emph{why} this property has held so far and achieve one of the following:
+\begin{enumerate}
+  \item prove that it must always hold,
+  \item find an example where the optimal $Z$ does not admit a rank-one approximation that also satisfies the problem, or
+  \item reduce this to an existing unsolved problem.
+\end{enumerate}
+
+\subsubsection{Prove convergence of POP-TD}
+
+We wish to prove that our two-timescales structure (learning $y$ and $g(s) = y^\top A(s) y$ separately) and update rules are such that these two functions will converge a solution. Specifically, we wish to prove that, under mild assumptions, the update rules construct a dynamical system that is convergent. We may extend this by attempting to prove that it remains well-behaved even in the context of a slowly changing sampling distribution (as in \cite{zhang2021breaking}), which would allow us to recommend this algorithm for online TD learning as well.
+
+\subsubsection{(Optionally) Bound the quality of the solution at convergence. }
+
+A particularly difficult ``stretch'' goal is to prove bounds on the quality of the solution reached by POP-TD. From other examples in the literature \cite{zhang2020provably,zhang2021breaking}, we know that these bounds are likey to be loose in pathological cases, but the structure of the derived bounds would be an exciting result.
+
+We may first derive bounds with the simplifying assumption that $g : \mathcal S \to mathbb R$ is tabular, as that prevents the chicken-and-egg problem of $g$ itself being vulnerable to instability from off-policy training. (The version of Emphatic-TD we analyzed in \ref{sec:rr} has such a vulnerability.)
+
 
 \clearpage
 
@@ -539,7 +591,7 @@ Distinguish between these two claims. We make the former claim which is strictly
 
 \section{Technical Details}
 
-This is a complete derivation of the theory behind this project, from Kolter's non-expansion condition \cite{kolter2011fixed} to the exact update rules.
+This is a complete derivation of the theory behind this project, starting from Kolter's non-expansion condition \cite{kolter2011fixed} and ending with the production of the update rules. This is an elaborated version of \cite{kolternote2022}.
 
 \subsection{Kolter's non-expansion condition}
 
@@ -583,11 +635,12 @@ We construct the dual of this problem:
 \begin{align}
   \underset{Z\succcurlyeq 0}{\text{maximize}} \underset{q}{\text{minimize}}~\text{KL}(q||\mu) - \tr Z^\top \E_{s\sim q}[F(s)]
 \end{align}
-Using the Lagrange multiplier $Z\in\mathbb^{2k\times 2k}, we solve the inner optimization problem:
+Using the Lagrange multiplier $Z\in\mathbb R^{2k\times 2k}$, we solve the inner optimization problem:
 \begin{align}
   \underset{q}{\text{minimize}} - H(q) - \E_{s\sim q}[\log \mu(s) + \tr Z^\top F(s)]
 \end{align}
-\todo{Write down Lagrangian, find optima.}
+
+paragraph \todo{Write down Lagrangian, find optima.}
 \begin{align}
   q(s) & = \exp(\log \mu(s) + \tr Z^\top F(s))
 \intertext{Adding the constraint that $q(s)$ must sum to 1 over all s, we obtain the analytical solution $q^*(s)$: }
@@ -665,7 +718,7 @@ where $\theta$ is the parameterization of $g(s)$, and $\alpha_\circ$ are learnin
 And finally, to complete this, we multiply each update of $w$ by $\exp(2 g(s))$ to resample it so it appears to come from the ``safe'' distribution, which completes the description of the algorithm!
 
 
-\todo{Update original notes with 2 g_\theta(s)}
+\todo{Update original notes with $2 g_\theta(s)$}
 
 
 
