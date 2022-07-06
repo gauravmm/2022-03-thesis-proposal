@@ -7,12 +7,13 @@
         enlargelimits=false,
         ymode=log,
         mark=none,
-        ymax=10,
+        ymax=1000000,
+        xmin=0, xmax=1,
         xlabel={$p$ in sampling distribution $\mu=[\sfrac p2, \sfrac p2, 1-p]$},
         yticklabels={,,},
         ylabel={TD error},
     ]
-    \addplot[color=viridis09,thick] table [x=p, y=err] {thesiswork/threestate/eta_-infty.dat} node[above,pos=0.99] {Naive TD};
-    \addplot[color=viridis03,thick] table [x=p, y=err] {thesiswork/threestate/export_threestate.dat} node[above,pos=0.6] {POP-TD};
+    \addplot[color=viridis09,thick] table [x=p, y=analytic] {thesiswork/diffusion/export_diffusion.dat} node[above,pos=0.99] {Naive TD};
+    \addplot[color=viridis03,thick] table [x=p, y=poptd] {thesiswork/diffusion/export_diffusion.dat} node[below,pos=0.98] {POP-TD};
     \end{axis}
 \end{tikzpicture}

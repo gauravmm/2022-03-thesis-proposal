@@ -461,7 +461,7 @@ explicitly optimizing over the distributons using a primal-dual formulation that
 \subsubsection{I- and M-projections} \label{sec:improj}
 The Kullback-Leibler divergence is an \emph{asymmetric} measure, and so it is usually the case that $\min_q~\text{KL}(q||\mu) \neq \min_q~\text{KL}(\mu||q)$. The former (``from $\mu$ to $q$'') is an information (or I-)projection, which tends to under-estimate the support of $q$ potentially excluding possible sampling distributions to reweight to. The latter (``from $q$ to $\mu$'') is a moment (or M-)projection, which tends to over-estimate the support of $q$ and avoid zero solutions. In our solution, we are proposing using an I-projection instead of the M-projection used by \citet{kolter2011fixed}. 
 
-\subsubsection{Offline/Batch RL}
+\subsubsection{Offline/Batch RL} \label{sec:offlinerlbackground}
 
 Offline RL is a field of RL which focuses on learning optimal policies from a static dataset sampled from an unknown policy, possibly a policy designed for a different task. In offline RL, algorithms are expected to learn entirely from environment samples without the ability to interact with the environment. This is commonly useful to learn in environments that are expensive to explore in (such as running a Tokamak nuclear reactor), or in extremely high-dimensional environments with cheap access to expert trajectories (such as video games). \citet{levine2020survey} present a comprehensive survey of the area.
 
@@ -516,7 +516,7 @@ We have a preliminary implementation of this algorithm to verify its basic funct
 %%
 \begin{figure}[t]
   \input{thesiswork/threestate/threestate.tex}
-  \caption{We plot the error of various TD methods against $p$ for three-state MDP from \cite{manek2022pitfalls}. The on-policy distribution is at $p=0.5$, and Kolter's non-expansion criterion is met in the domain $p\in[0, 0.5]$. We see that naive TD diverges around $p\approx0.71$, but POP-TD retains low error in that region. }
+  \caption{We plot the error of TD methods against $p$ for the three-state MDP from \cite{manek2022pitfalls}. The on-policy distribution is at $p=0.5$, and Kolter's non-expansion criterion is met in the domain $p\in[0, 0.5]$. We see that naive TD diverges around $p\approx0.71$, but POP-TD retains low error in that region. }
   \label{fig:prelimthreestate}
 \end{figure}
 %%
@@ -527,42 +527,49 @@ We have a preliminary implementation of this algorithm to verify its basic funct
 
 Recall that our algorithm reweights TD updates to the closest distribution in which Kolter's non-expansion criterion is met. This corresponds to the domain $p\in[0, 0.5]$ in the three-state example. This explains why the error curve from POP-TD exactly follows naive TD in the domain $p\in[0, 0.5]$, because no reweighting is necessary. Further, distributions in the domain $p\in(0.5, 1]$ are all mapped to the closest distribution $p=0.5$--where the error is the lowest--and so POP-TD exhibits that low error in the right half of the plot. Around $p=1.0$ error increases sharply because that distribution violates the full-coverage assumption (that the support of the sampling distribution covers all states in the closest distribution).
 
-\paragraph{Diffusion and Random MDPs} We further test POP-TD on the advanced tasks in \cite{kolter2011fixed}: the randomly-generated MDP and randomly-generated diffusion chain. Following the procedures described in the paper, we generate both MDPs and find the value function using both vanilla TD and POP-TD with similar parameters. As in the previous work, we plot the performance of both as a function of training.
 
+%%
+\begin{figure}[t]
+  \input{thesiswork/diffusion/diffusion.tex}
+  \caption{We plot the error of various TD methods against $p$ for the diffusion chain MDP from \cite{manek2022pitfalls}. The on-policy distribution is at $p=0.0$. We see that naive TD diverges around $p\approx0.65$, but POP-TD does not diverge in that region. }
+  \label{fig:prelimdiffusion}
+\end{figure}
+%%
 
+\paragraph{Diffusion Chain MDP} We further test POP-TD on the random diffusion chain task from \cite{kolter2011fixed}. Following the procedures described in the paper we generate an MDP, find the analytic fixed point for vanilla TD, and the value function using POP-TD. As before, we plot the performance of both as a function of how close we are to being on-policy. As shown in Figure~\ref{fig:prelimdiffusion}, POP-TD is able to prevent TD learning from diverging in the region where vanilla TD does.
 
 
 \subsection{Remaining Work }
 
-The proposed project is to complete the design of POP-TD, evaluate it across a range of problems, and (if possible) prove its correctness, convergence, and performance.
+As discussed in Section~\ref{sec:offlinerlbackground}, a promising use-case of POP-TD is in offline/batch RL, where distribution shift greatly limits the efficacy of existing solutions. By providing a mechanism to reduce the error from sampling off-policy, we hope to produce an algorithm with better . The proposed project is to complete the design of an offline RL algorithm based on POP-TD, evaluate it across a range of problems, and (if possible) prove its correctness, convergence, and performance.
+We break this down into a series of specific goals:
 
 \subsubsection{Full Implementation and Evaluation }
 
-The natural application for this is in the field of offline RL.
-\todo{Why?}
-
+We wish to implement this on a set of tasks of increasing complexity, starting with a set of toy examples so we can better understand the tradeoffs and the role of the hyperparameters involved. As a first pass, these are:
 \begin{enumerate}
-  \item Implement with stochastic updates
-  \item Evaluate on a sequence of tasks:
+  \item Toy examples (Online RL)
   \begin{enumerate}
-    \item Toy examples (Online RL)
-    \begin{enumerate}
-      \item Three-state
-      \item Diffusion chain/Random MDPs
-    \end{enumerate}
-    \item Locomotion examples (Offline RL)
-    \begin{enumerate}
-      \item Cartpole
-      \item Lunar Lander
-    \end{enumerate}
-    \item Atari-like examples (Offline RL)
-    \begin{enumerate}
-      \item Maze2D
-      \item ???
-    \end{enumerate}
+    \item Three-state
+    \item Diffusion chain MDPs
   \end{enumerate}
+
+  \item Simple locomotion examples (Offline RL)
+  \begin{enumerate}
+    \item Cartpole
+    \item Lunar Lander
+  \end{enumerate}
+
+  \item D4RL tasks
+  \begin{enumerate}
+    \item Maze2D
+    \item Gym environments (?)
+  \end{enumerate}
+
+  \item Atari tasks (?)
 \end{enumerate}
 
+We are currently working on the simple locomotion examples using Vanilla Policy Gradient methods with our update rules to see if we can learn a policy when we learn from a dataset generated by combining traces from expert and random agents.
 
 \subsubsection{Our Assumption that the Lagrange Multiplier is Low-Rank }
 
@@ -688,7 +695,7 @@ Our next goal is to transform this constrained optimization problem into an unco
 
 We assume (and later check!) that the solution for $Z$ is low-rank. Intuitively, this is because $\E_{s\sim\mu}[F(s)]$ is PSD when $\mu$ is close to $\pi$, and for most MDPs, sampling off-policy leads to only a small number of negative eigenvalues that need to be corrected by $Z$. \citet{kolter2011fixed} provide a technical explanation: by the KKT conditions, $Z$ will have rank complementary to $\E_{s\sim\mu}[F(s)]$, and the latter is expected to be full rank. It is worth noting that this ``almost-PSD'' assumption is common in the field, is supported by the work in \cite{manek2022pitfalls}. We later discuss how we verify that this assumption holds.
 
-We make the strong assumption that $Z$ is rank one, and apply the Burer-Montiero \todo{cite} approach to convert the constrained optimization problem over $Z$ into an unconstrained optimization over $y\in \mathbb R^{k}$:
+We make the strong assumption that $Z$ is rank one, and apply the Burer-Montiero approach \cite{burer2003nonlinear} to convert the constrained optimization problem over $Z$ into an unconstrained optimization over $y\in \mathbb R^{k}$:
 \begin{align}
   Z^\star & = \begin{bmatrix} y \\ -y \end{bmatrix} \begin{bmatrix} y \\ -y\end{bmatrix}^T
 \end{align}
