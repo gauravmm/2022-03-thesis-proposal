@@ -1,0 +1,18 @@
+\begin{tikzpicture}
+    \begin{axis}[
+        scale only axis,
+        width=\textwidth-10mm,
+        height=5cm,
+        tick align=outside,
+        enlargelimits=false,
+        ymode=log,
+        mark=none,
+        ymax=10,
+        xlabel={$p$ in sampling distribution $\mu=[\sfrac p2, \sfrac p2, 1-p]$},
+        yticklabels={,,},
+        ylabel={TD error},
+    ]
+    \addplot[color=viridis09,thick] table [x=p, y=err] {thesiswork/threestate/eta_-infty.dat} node[above,pos=0.99] {Naive TD};
+    \addplot[color=viridis03,thick] table [x=p, y=err] {thesiswork/threestate/export_threestate.dat} node[above,pos=0.7] {POP-TD};
+    \end{axis}
+\end{tikzpicture}
