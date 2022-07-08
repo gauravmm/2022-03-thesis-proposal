@@ -213,9 +213,7 @@ One classic solution to this problem is to adopt some sort of regularization to 
 \subsubsection{RR admits vacuous models}
 Instead of using asymptotic error as a measure of divergence, we define a \emph{vacuous model} as one that, for all $\eta$, never performs better than the limiting error at $\eta\to\infty$. (At the limit $\eta\to\infty$, all model weights are zero and so is the model output.) Intuitively, a vacuous model is one that never does better than always predicting zeros.
 
-Even though RR \emph{appears} to mitigate the training instability, it merely hides it. This can be observed in Figure~\ref{fig:fixedpointp}, which illustrates the effect of RR on the error landscape in our three-state MRP. While RR blunts the asymptote, it increases the error everywhere quickly enough that there is some off-policy distribution under which TD learns always learns a vacuous model despite any amount of regularization. In previous work \citep{manek2022pitfalls}, we identified the exact point and proved this.
-
-\todo{Add more explanation here. }
+Even though RR \emph{appears} to mitigate the training instability, it merely hides it. This can be observed in Figure~\ref{fig:fixedpointp}, which illustrates the effect of RR on the error landscape in our three-state MRP. While RR blunts the asymptote, it increases the error everywhere quickly enough that there is some off-policy distribution under which TD always converges to a point with at least $\|V\|$ error. We call these models \emph{vacuous} because $\|V\|$ corresponds to the error from guessing zero for the value of every state, and vacuous models are ones that never do better than that despite any amount of regularization.
 
 \subsubsection{RR and small-eta divergence}
 Further, there is a general assumption in the literature that RR monotonically shrinks the learned weights and model output. While this is true in classification, regression, and other non-bootstrapping contexts this is \emph{not} true in TD. Because TD repeatedly bootstraps values it is possible for small amounts of model bias to be magnified and induce model divergence.
@@ -392,9 +390,12 @@ We find that we can learn stabilizing controllers for a one-link pendulum and th
 
 Given the failure of this method to generalize to stable control, we inferred that learning a stable value function was unlikely to succeed, and so shelved this line of inquiry.
 
-\subsection{ODE stopping-time Policy and Value}
+\begin{comment}
+  \subsection{ODE stopping-time Policy and Value}
 
-Learn dynamics and policies from trajectories using a novel ODE stopping-time formulation. One eventual goal was to learn policies that mimic expert trajectories and then iteratively improve the policy to increase the aggregate reward encountered during each trajectory. To do this we...\todo{Should we talk about the ODE stopping-time work? }
+  Learn dynamics and policies from trajectories using a novel ODE stopping-time formulation. One eventual goal was to learn policies that mimic expert trajectories and then iteratively improve the policy to increase the aggregate reward encountered during each trajectory. To do this we...\todo{Should we talk about the ODE stopping-time work? }
+\end{comment}
+
 
 \section{Proposal: Projected Off-Policy TD (POP-TD) }
 
